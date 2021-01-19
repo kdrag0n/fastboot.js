@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>fastboot.js demo</title>
+        <script src="fastboot.js"></script>
+        <script src="ui.js"></script>
+    </head>
+
+    <body>
+        <div>
+            <p>Status: <span class="status-field">Not connected</span></p>
+            <button onclick="connectDevice();">Connect device</button>
+        </div>
+
+        <hr/>
+
+        <div>
+            <form class="command-form">
+                <label for="command">Command:</label>
+                <input type="text" name="command" class="command-input">
+                <input type="submit" value="Send">
+            </form>
+            <p>Result:</p>
+            <pre class="result-field"></pre>
+        </div>
+
+        <script>
+            document.querySelector('.command-form').addEventListener('submit', sendFormCommand);
+        </script>
+    </body>
+</html>
