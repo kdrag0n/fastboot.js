@@ -2,14 +2,14 @@
 <html>
     <head>
         <title>fastboot.js demo</title>
-        <script src="fastboot.js"></script>
-        <script src="ui.js"></script>
+        <script src="fastboot.js" type="module"></script>
+        <script src="ui.js" type="module"></script>
     </head>
 
     <body>
         <div>
             <p>Status: <span class="status-field">Not connected</span></p>
-            <button onclick="connectDevice();">Connect device</button>
+            <button class="connect-button">Connect device</button>
         </div>
 
         <hr/>
@@ -24,8 +24,13 @@
             <pre class="result-field"></pre>
         </div>
 
+        <hr/>
+
         <script>
-            document.querySelector('.command-form').addEventListener('submit', sendFormCommand);
+            import('./ui.js').then(ui => {
+                document.querySelector('.command-form').addEventListener('submit', ui.sendFormCommand);
+                document.querySelector('.connect-button').addEventListener('click', ui.connectDevice);
+            });
         </script>
     </body>
 </html>

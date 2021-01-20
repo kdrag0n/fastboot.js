@@ -1,13 +1,13 @@
-let device = null;
+export let device = null;
 
-class UsbError extends Error {
+export class UsbError extends Error {
     constructor(message) {
         super(message);
         this.name = this.constructor.name;
     }
 }
 
-async function connectFastboot() {
+export async function connectFastboot() {
     device = await navigator.usb.requestDevice({
         filters: [
             { vendorId: 0x18d1, productId: 0x4ee0 },
@@ -16,18 +16,18 @@ async function connectFastboot() {
     console.log('dev', device);
 
     // Validate device
-    let interface = device.configurations[0].interfaces[0].alternates[0];
-    if (interface.endpoints.length != 2) {
+    let ife = device.configurations[0].interfaces[0].alternates[0];
+    if (ife.endpoints.length != 2) {
         throw new UsbError('Interface has wrong number of endpoints');
     }
     
-    if (interface.interfaceClass != 255 || interface.interfaceProtocol != 3 || interface.interfaceSubclass != 66) {
+    if (ife.interfaceClass != 255 || ife.interfaceProtocol != 3 || ife.interfaceSubclass != 66) {
         throw new UsbError('Interface has wrong class, subclass, or protocol');
     }
 
     let epIn = null;
     let epOut = null;
-    for (let endpoint of interface.endpoints) {
+    for (let endpoint of ife.endpoints) {
         console.log('check endpoint', endpoint)
         if (endpoint.type != 'bulk') {
             throw new UsbError('Interface endpoint is not bulk');
@@ -55,7 +55,7 @@ async function connectFastboot() {
     await device.claimInterface(0); // fastboot
 }
 
-async function sendCommand(device, command) {
+export async function sendCommand(device, command) {
     if (command.length > 64) {
         throw new RangeError();
     }
