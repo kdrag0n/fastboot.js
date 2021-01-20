@@ -53,6 +53,7 @@ export class FastbootDevice {
         console.log('eps: in', epIn, 'out', epOut);
     
         await this.device.open();
+        // TODO: find out if this is actually necessary on Linux
         await this.device.reset();
         await this.device.selectConfiguration(1);
         await this.device.claimInterface(0); // fastboot
