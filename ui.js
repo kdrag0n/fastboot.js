@@ -13,8 +13,8 @@ export async function connectDevice() {
         return;
     }
 
-    let product = await device.sendCommand('getvar:product');
-    let serial = await device.sendCommand('getvar:serialno');
+    let product = (await device.sendCommand('getvar:product')).text;
+    let serial = (await device.sendCommand('getvar:serialno')).text;
     let status = `Connected to ${product} (serial: ${serial})`;
     statusField.textContent = status;
 }
@@ -22,7 +22,7 @@ export async function connectDevice() {
 async function _sendFormCommand() {
     let inputField = document.querySelector('.command-input');
     let command = inputField.value;
-    let result = await device.sendCommand(command);
+    let result = (await device.sendCommand(command)).text;
     document.querySelector('.result-field').textContent = result;
     inputField.value = '';
 }
@@ -30,5 +30,19 @@ async function _sendFormCommand() {
 export function sendFormCommand(event) {
     event.preventDefault();
     _sendFormCommand();
+    return false;
+}
+
+async function _flashFormFile() {
+    let fileField = document.querySelector('.flash-file');
+    let partField = document.querySelector('.flash-partition');
+    let file = fileField.files[0];
+    await device.flashFile(partField.value, file);
+    fileField.value = '';
+}
+
+export function flashFormFile(event) {
+    event.preventDefault();
+    _flashFormFile();
     return false;
 }
