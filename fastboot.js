@@ -60,7 +60,7 @@ export class FastbootDevice {
     }
 
     async sendCommand(command) {
-        // TODO: 1024 length limit for USB 3 (ref: spec)
+        // Command and response length is always 64 bytes regardless of protocol
         if (command.length > 64) {
             throw new RangeError();
         }
