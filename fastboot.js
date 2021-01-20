@@ -2,6 +2,14 @@ const FASTBOOT_USB_CLASS = 0xff;
 const FASTBOOT_USB_SUBCLASS = 0x42;
 const FASTBOOT_USB_PROTOCOL = 0x03;
 
+const DEBUG = true;
+
+function logDebug(...data) {
+    if (DEBUG) {
+        console.log(...data);
+    }
+}
+
 export class UsbError extends Error {
     constructor(message) {
         super(message);
@@ -29,7 +37,7 @@ export class FastbootDevice {
                 { vendorId: 0x18d1, productId: 0x4ee0 },
             ],
         });
-        console.log('dev', this.device);
+        logDebug('dev', this.device);
     
         // Validate device
         let ife = this.device.configurations[0].interfaces[0].alternates[0];
@@ -46,7 +54,7 @@ export class FastbootDevice {
         let epIn = null;
         let epOut = null;
         for (let endpoint of ife.endpoints) {
-            console.log('check endpoint', endpoint)
+            logDebug('check endpoint', endpoint)
             if (endpoint.type != 'bulk') {
                 throw new UsbError('Interface endpoint is not bulk');
             }
@@ -65,7 +73,7 @@ export class FastbootDevice {
                 }
             }
         }
-        console.log('eps: in', epIn, 'out', epOut);
+        logDebug('eps: in', epIn, 'out', epOut);
     
         await this.device.open();
         // TODO: find out if this is actually necessary on Linux
@@ -83,15 +91,15 @@ export class FastbootDevice {
         // Send raw UTF-8 command
         let cmdPacket = new TextEncoder('utf-8').encode(command);
         await this.device.transferOut(0x01, cmdPacket);
+        logDebug('command:', command);
 
         // Construct response string for each message
         let returnStr = ''
         let response;
         do {
             let respPacket = await this.device.transferIn(0x01, 64);
-            console.log('resppacket', respPacket)
             response = new TextDecoder().decode(respPacket.data);
-            console.log('resppacket', respPacket, 'resp', response);
+            logDebug('response: packet', respPacket, 'string', response);
     
             if (response.startsWith('OKAY')) {
                 // OKAY = end of response for this command
