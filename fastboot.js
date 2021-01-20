@@ -1,3 +1,7 @@
+const FASTBOOT_USB_CLASS = 0xff;
+const FASTBOOT_USB_SUBCLASS = 0x42;
+const FASTBOOT_USB_PROTOCOL = 0x03;
+
 export class UsbError extends Error {
     constructor(message) {
         super(message);
@@ -33,7 +37,9 @@ export class FastbootDevice {
             throw new UsbError('Interface has wrong number of endpoints');
         }
         
-        if (ife.interfaceClass != 255 || ife.interfaceProtocol != 3 || ife.interfaceSubclass != 66) {
+        if (ife.interfaceClass != FASTBOOT_USB_CLASS ||
+                ife.interfaceSubclass != FASTBOOT_USB_SUBCLASS ||
+                ife.interfaceProtocol != FASTBOOT_USB_PROTOCOL) {
             throw new UsbError('Interface has wrong class, subclass, or protocol');
         }
     
