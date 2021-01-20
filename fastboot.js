@@ -5,6 +5,15 @@ export class UsbError extends Error {
     }
 }
 
+export class FastbootError extends Error {
+    constructor(status, message) {
+        super(`Bootloader replied with ${status}: ${message}`);
+        this.status = status;
+        this.bootloaderMessage = message;
+        this.name = this.constructor.name;
+    }
+}
+
 export class FastbootDevice {
     constructor() {
         this.device = null;
@@ -81,9 +90,12 @@ export class FastbootDevice {
             if (response.startsWith('OKAY')) {
                 // OKAY = end of response for this command
                 returnStr += response.substring(4);
+            } else if (response.startsWith('INFO')) {
+                // INFO = additional info line
+                returnStr += response.substring(4) + '\n';
             } else {
-                // FAIL is also a final response, but we add the FAIL tag to the message
-                returnStr += `[${response.substring(0, 4)}]: ${response.substring(4)}\n`;
+                // Assume FAIL or garbage data
+                throw new FastbootError(response.substring(0, 4), response.substring(4));
             }
         // INFO means that more packets are coming
         } while (response.startsWith('INFO'));
