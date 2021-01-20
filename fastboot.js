@@ -26,6 +26,7 @@ function readFileAsBuffer(file) {
     });
 }
 
+/** Exception class for USB or WebUSB-level errors. */
 export class UsbError extends Error {
     constructor(message) {
         super(message);
@@ -33,6 +34,7 @@ export class UsbError extends Error {
     }
 }
 
+/** Exception class for bootloader and high-level fastboot errors. */
 export class FastbootError extends Error {
     constructor(status, message) {
         super(`Bootloader replied with ${status}: ${message}`);
@@ -42,12 +44,27 @@ export class FastbootError extends Error {
     }
 }
 
+/**
+ * Implements fastboot commands and operations for a device connected over USB.
+ */
 export class FastbootDevice {
+    /**
+     * Creates a new fastboot device object ready to connect to a USB device.
+     * This does not actually connect to any devices.
+     * 
+     * @see connect
+     */
     constructor() {
         this.device = null;
         this.maxPacketSize = null;
     }
 
+    /**
+     * Request the user to select a USB device and attempt to connect to it
+     * using the fastboot protocol.
+     * 
+     * @throws {UsbError}
+     */
     async connect() {
         this.device = await navigator.usb.requestDevice({
             filters: [
@@ -101,6 +118,13 @@ export class FastbootDevice {
         await this.device.claimInterface(0); // fastboot
     }
 
+    /**
+     * Reads a raw command response from the bootloader.
+     * 
+     * @private
+     * @returns {response} Object containing response text and data size, if any.
+     * @throws {FastbootError}
+     */
     async readResponse() {
         let returnData = {
             text: '',
@@ -131,6 +155,14 @@ export class FastbootDevice {
         return returnData;
     }
 
+    /**
+     * Sends a textual command to the bootloader.
+     * This is in raw fastboot format, not AOSP fastboot syntax.
+     * 
+     * @param {string} command - The command to send.
+     * @returns {response} Object containing response text and data size, if any.
+     * @throws {FastbootError}
+     */
     async sendCommand(command) {
         // Command and response length is always 64 bytes regardless of protocol
         if (command.length > 64) {
@@ -145,6 +177,13 @@ export class FastbootDevice {
         return this.readResponse();
     }
 
+    /**
+     * Returns the value of a bootloader variable.
+     * 
+     * @param {string} varName - The name of the variable to get.
+     * @returns {value} Textual content of the variable.
+     * @throws {FastbootError}
+     */
     async getVariable(varName) {
         let resp = (await this.sendCommand(`getvar:${varName}`)).text;
         // Some bootloaders send whitespace around some variables
@@ -159,7 +198,13 @@ export class FastbootDevice {
         }
     }
 
-    // Maximum payload to download and flash
+    /**
+     * Returns the maximum download size for a single payload, in bytes.
+     * 
+     * @private
+     * @returns {downloadSize}
+     * @throws {FastbootError}
+     */
     async getDownloadSize() {
         try {
             let resp = (await getVariable('max-download-size')).toLowerCase();
@@ -173,6 +218,13 @@ export class FastbootDevice {
         return DEFAULT_DOWNLOAD_SIZE;
     }
 
+    /**
+     * Reads a raw command response from the bootloader.
+     * 
+     * @private
+     * @returns {response} Object containing response text and data size, if any.
+     * @throws {FastbootError}
+     */
     async sendRawPayload(buffer) {
         let i = 0;
         let remainingBytes = buffer.byteLength;
@@ -190,6 +242,14 @@ export class FastbootDevice {
         logDebug(`Finished sending payload, ${remainingBytes} bytes remaining`);
     }
 
+    /**
+     * Flashes the given File or Blob to the given partition on the device.
+     * Only supports flashing sparse images.
+     *
+     * @param {string} partition - The name of the partition to flash.
+     * @param {Blob} file - The Blob or File to retrieve data from.
+     * @throws {FastbootError}
+     */
     async flashFile(partition, file) {
         // Use current slot if partition is A/B
         try {
