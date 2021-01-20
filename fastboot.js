@@ -55,19 +55,19 @@ export class FastbootDevice {
             ],
         });
         logDebug('dev', this.device);
-    
+
         // Validate device
         let ife = this.device.configurations[0].interfaces[0].alternates[0];
         if (ife.endpoints.length != 2) {
             throw new UsbError('Interface has wrong number of endpoints');
         }
-        
+
         if (ife.interfaceClass != FASTBOOT_USB_CLASS ||
                 ife.interfaceSubclass != FASTBOOT_USB_SUBCLASS ||
                 ife.interfaceProtocol != FASTBOOT_USB_PROTOCOL) {
             throw new UsbError('Interface has wrong class, subclass, or protocol');
         }
-    
+
         let epIn = null;
         let epOut = null;
         for (let endpoint of ife.endpoints) {
@@ -75,7 +75,7 @@ export class FastbootDevice {
             if (endpoint.type != 'bulk') {
                 throw new UsbError('Interface endpoint is not bulk');
             }
-    
+
             if (endpoint.direction == 'in') {
                 if (epIn == null) {
                     epIn = endpoint.endpointNumber;
@@ -93,7 +93,7 @@ export class FastbootDevice {
             }
         }
         logDebug('eps: in', epIn, 'out', epOut);
-    
+
         await this.device.open();
         // TODO: find out if this is actually necessary on Linux
         await this.device.reset();
@@ -111,7 +111,7 @@ export class FastbootDevice {
             let respPacket = await this.device.transferIn(0x01, 64);
             response = new TextDecoder().decode(respPacket.data);
             logDebug('response: packet', respPacket, 'string', response);
-    
+
             if (response.startsWith('OKAY')) {
                 // OKAY = end of response for this command
                 returnData.text += response.substring(4);
@@ -127,7 +127,7 @@ export class FastbootDevice {
             }
         // INFO means that more packets are coming
         } while (response.startsWith('INFO'));
-    
+
         return returnData;
     }
 
@@ -150,7 +150,7 @@ export class FastbootDevice {
         // Some bootloaders send whitespace around some variables
         resp = resp.trim();
         // According to the spec, non-existent variables should return empty
-        // responses, 
+        // responses
         if (resp) {
             return resp;
         } else {
