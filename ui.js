@@ -13,8 +13,8 @@ export async function connectDevice() {
         return;
     }
 
-    let product = (await device.sendCommand('getvar:product')).text;
-    let serial = (await device.sendCommand('getvar:serialno')).text;
+    let product = await device.getVariable('product');
+    let serial = await device.getVariable('serialno');
     let status = `Connected to ${product} (serial: ${serial})`;
     statusField.textContent = status;
 }
