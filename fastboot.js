@@ -3,6 +3,9 @@ const FASTBOOT_USB_SUBCLASS = 0x42;
 const FASTBOOT_USB_PROTOCOL = 0x03;
 
 const DEFAULT_DOWNLOAD_SIZE = 512 * 1024 * 1024; // 512 MiB
+// To conserve RAM and work around Chromium's ~2 GiB size limit, we limit the
+// max download size even if the bootloader can accept more data.
+const MAX_DOWNLOAD_SIZE = 1024 * 1024 * 1024; // 1 GiB
 
 const DEBUG = true;
 
@@ -210,7 +213,7 @@ export class FastbootDevice {
             let resp = (await getVariable('max-download-size')).toLowerCase();
             if (resp) {
                 // AOSP fastboot requires hex
-                return parseInt(resp, 16);
+                return Math.min(parseInt(resp, 16), MAX_DOWNLOAD_SIZE);
             }
         } catch (error) { /* Failed = no value, fallthrough */ }
 
@@ -259,13 +262,12 @@ export class FastbootDevice {
         } catch (error) { /* Failed = not A/B, fallthrough */ }
 
         let maxDlSize = await this.getDownloadSize();
-        let data = await readFileAsBuffer(file);
-        logDebug(`Flashing ${data.byteLength} bytes to ${partition}, ${maxDlSize} bytes per chunk`);
+        logDebug(`Flashing ${file.size} bytes to ${partition}, ${maxDlSize} bytes per chunk`);
 
         let totalXferd = 0;
-        while (totalXferd < data.byteLength) {
+        while (totalXferd < file.size) {
             // Try to transfer as much as possible in this chunk
-            let xferSize = Math.min(data.byteLength - totalXferd, maxDlSize);
+            let xferSize = Math.min(file.size - totalXferd, maxDlSize);
             // Bootloader requires an 8-digit hex number
             let xferHex = xferSize.toString(16).padStart(8, '0');
             if (xferHex.length != 8) {
@@ -283,9 +285,9 @@ export class FastbootDevice {
                 throw new FastbootError('FAIL', `Bootloader returned download size 0: ${downloadResp.text}`);
             }
 
-            logDebug(`Chunk: Flashing ${xferSize} bytes, ${data.byteLength - totalXferd} remaining, total sent: ${totalXferd} bytes`);
-            await this.sendRawPayload(data.slice(0, xferSize));
-            data = data.slice(xferSize);
+            logDebug(`Chunk: Flashing ${xferSize} bytes, ${file.size - totalXferd} remaining, total sent: ${totalXferd} bytes`);
+            let chunkData = await readFileAsBuffer(file.slice(totalXferd, totalXferd + xferSize));
+            await this.sendRawPayload(chunkData);
 
             logDebug('Chunk sent, waiting for response...');
             await this.readResponse();
@@ -295,6 +297,6 @@ export class FastbootDevice {
             totalXferd += xferSize;
         }
 
-        logDebug(`Flashed ${partition} in chunks of ${maxDlSize} bytes, ${data.byteLength} bytes remaining`);
+        logDebug(`Flashed ${partition} in chunks of ${maxDlSize} bytes, ${file.size - totalXferd} bytes remaining`);
     }
 }
