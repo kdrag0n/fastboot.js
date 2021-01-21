@@ -1,3 +1,5 @@
+import * as common from './common.js';
+
 const FILE_MAGIC = 0xed26ff3a;
 
 const MAJOR_VERSION = 1;
@@ -16,7 +18,7 @@ export class ImageError extends Error {
     }
 }
 
-function parseSparseHeader(buffer) {
+function parseHeader(buffer) {
     let view = new DataView(buffer);
 
     let magic = view.getUint32(0, true);
@@ -50,7 +52,7 @@ function parseSparseHeader(buffer) {
     };
 }
 
-function createSparseImage(header, chunks) {
+function createImage(header, chunks) {
     // 28-byte file header, 12-byte chunk headers
     let overhead = FILE_HEADER_SIZE + CHUNK_HEADER_SIZE * chunks.length;
     let totalData = chunks.map(chunk => chunk.data.byteLength)
@@ -108,7 +110,7 @@ function createSparseImage(header, chunks) {
 
 export function isSparse(buffer) {
     try {
-        let header = parseSparseHeader(buffer);
+        let header = parseHeader(buffer);
         return header != null;
     } catch (error) {
         // ImageError = invalid
@@ -116,7 +118,7 @@ export function isSparse(buffer) {
     }
 }
 
-export function rawToSparseImage(rawBuffer) {
+export function fromRaw(rawBuffer) {
     let header = {
         blockSize: 4096,
         blocks: rawBuffer.byteLength / 4096,
@@ -131,5 +133,5 @@ export function rawToSparseImage(rawBuffer) {
         data: rawBuffer,
     }];
 
-    return createSparseImage(header, chunks);
+    return createImage(header, chunks);
 }

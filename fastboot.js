@@ -241,7 +241,7 @@ export class FastbootDevice {
             // Assume that non-sparse images will always be small enough to convert in RAM.
             // The buffer is converted to a Blob for compatibility with the existing flashing code.
             let rawData = await common.readFileAsBuffer(file);
-            let sparse = Sparse.rawToSparseImage(rawData);
+            let sparse = Sparse.fromRaw(rawData);
             file = new Blob([sparse]);
         }
 
