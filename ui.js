@@ -39,6 +39,7 @@ async function _flashFormFile() {
     let file = fileField.files[0];
     await device.flashFile(partField.value, file);
     fileField.value = '';
+    partField.value = '';
 }
 
 export function flashFormFile(event) {
