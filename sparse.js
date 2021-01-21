@@ -124,6 +124,7 @@ export function rawToSparseImage(rawBuffer) {
         crc32: 0,
     };
     // 1 big chunk with all the raw data
+    // TODO: break up into 256/384M chunks to facilitate splitting
     let chunks = [{
         type: 'raw',
         blocks: header.blocks,
