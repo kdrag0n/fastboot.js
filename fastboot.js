@@ -4,6 +4,8 @@ const FASTBOOT_USB_CLASS = 0xff;
 const FASTBOOT_USB_SUBCLASS = 0x42;
 const FASTBOOT_USB_PROTOCOL = 0x03;
 
+const BULK_TRANSFER_SIZE = 16384;
+
 const DEFAULT_DOWNLOAD_SIZE = 512 * 1024 * 1024; // 512 MiB
 // To conserve RAM and work around Chromium's ~2 GiB size limit, we limit the
 // max download size even if the bootloader can accept more data.
@@ -61,7 +63,6 @@ export class FastbootDevice {
      */
     constructor() {
         this.device = null;
-        this.maxPacketSize = null;
     }
 
     /**
@@ -107,8 +108,6 @@ export class FastbootDevice {
             } else if (endpoint.direction == 'out') {
                 if (epOut == null) {
                     epOut = endpoint.endpointNumber;
-                    // Device reports max packet size according to spec
-                    this.maxPacketSize = endpoint.packetSize;
                 } else {
                     throw new UsbError('Interface has multiple OUT endpoints');
                 }
@@ -234,7 +233,7 @@ export class FastbootDevice {
         let i = 0;
         let remainingBytes = buffer.byteLength;
         while (remainingBytes > 0) {
-            let chunk = buffer.slice(i * this.maxPacketSize, (i + 1) * this.maxPacketSize);
+            let chunk = buffer.slice(i * BULK_TRANSFER_SIZE, (i + 1) * BULK_TRANSFER_SIZE);
             if (i % 1000 == 0) {
                 logDebug(`  Sending ${chunk.byteLength} bytes to endpoint, ${remainingBytes} remaining, i=${i}`);
             }
