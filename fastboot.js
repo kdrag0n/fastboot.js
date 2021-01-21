@@ -1,3 +1,5 @@
+import * as Sparse from './sparse.js';
+
 const FASTBOOT_USB_CLASS = 0xff;
 const FASTBOOT_USB_SUBCLASS = 0x42;
 const FASTBOOT_USB_PROTOCOL = 0x03;
@@ -247,13 +249,24 @@ export class FastbootDevice {
 
     /**
      * Flashes the given File or Blob to the given partition on the device.
-     * Only supports flashing sparse images.
      *
      * @param {string} partition - The name of the partition to flash.
      * @param {Blob} file - The Blob or File to retrieve data from.
      * @throws {FastbootError}
      */
     async flashFile(partition, file) {
+        // Prepare image if it's not sparse
+        let fileHeader = await readFileAsBuffer(file.slice(0, Sparse.FILE_HEADER_SIZE));
+        if (!Sparse.isSparse(fileHeader)) {
+            logDebug(`${partition} image is raw, converting to sparse`);
+
+            // Assume that non-sparse images will always be small enough to convert in RAM.
+            // The buffer is converted to a Blob for compatibility with the existing flashing code.
+            let rawData = await readFileAsBuffer(file);
+            let sparse = Sparse.rawToSparseImage(rawData);
+            file = new Blob([sparse]);
+        }
+
         // Use current slot if partition is A/B
         try {
             if (await this.getVariable(`has-slot:${partition}`) == 'yes') {
