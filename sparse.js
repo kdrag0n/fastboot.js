@@ -108,6 +108,12 @@ function createImage(header, chunks) {
     return buffer;
 }
 
+/**
+ * Checks whether the given buffer is a valid sparse image.
+ * 
+ * @param {ArrayBuffer} buffer - Buffer containing the data to check.
+ * @returns {valid} Whether the buffer is a valid sparse image.
+ */
 export function isSparse(buffer) {
     try {
         let header = parseHeader(buffer);
@@ -118,6 +124,12 @@ export function isSparse(buffer) {
     }
 }
 
+/**
+ * Creates a sparse image from buffer containing raw image data.
+ * 
+ * @param {ArrayBuffer} rawBuffer - Buffer containing the raw image data.
+ * @returns {sparseBuffer} Buffer containing the new sparse image.
+ */
 export function fromRaw(rawBuffer) {
     let header = {
         blockSize: 4096,
