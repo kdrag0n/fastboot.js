@@ -1,4 +1,5 @@
 import * as Sparse from './sparse.js';
+import * as common from './common.js';
 
 const FASTBOOT_USB_CLASS = 0xff;
 const FASTBOOT_USB_SUBCLASS = 0x42;
@@ -10,28 +11,6 @@ const DEFAULT_DOWNLOAD_SIZE = 512 * 1024 * 1024; // 512 MiB
 // To conserve RAM and work around Chromium's ~2 GiB size limit, we limit the
 // max download size even if the bootloader can accept more data.
 const MAX_DOWNLOAD_SIZE = 1024 * 1024 * 1024; // 1 GiB
-
-const DEBUG = true;
-
-function logDebug(...data) {
-    if (DEBUG) {
-        console.log(...data);
-    }
-}
-
-function readFileAsBuffer(file) {
-    return new Promise((resolve, reject) => {
-        let reader = new FileReader();
-        reader.onload = () => {
-            resolve(reader.result);
-        };
-        reader.onerror = () => {
-            reject(reader.error);
-        };
-
-        reader.readAsArrayBuffer(file);
-    });
-}
 
 /** Exception class for USB or WebUSB-level errors. */
 export class UsbError extends Error {
@@ -77,7 +56,7 @@ export class FastbootDevice {
                 { vendorId: 0x18d1, productId: 0x4ee0 },
             ],
         });
-        logDebug('dev', this.device);
+        common.logDebug('dev', this.device);
 
         // Validate device
         let ife = this.device.configurations[0].interfaces[0].alternates[0];
@@ -94,7 +73,7 @@ export class FastbootDevice {
         let epIn = null;
         let epOut = null;
         for (let endpoint of ife.endpoints) {
-            logDebug('check endpoint', endpoint)
+            common.logDebug('check endpoint', endpoint)
             if (endpoint.type != 'bulk') {
                 throw new UsbError('Interface endpoint is not bulk');
             }
@@ -113,7 +92,7 @@ export class FastbootDevice {
                 }
             }
         }
-        logDebug('eps: in', epIn, 'out', epOut);
+        common.logDebug('eps: in', epIn, 'out', epOut);
 
         await this.device.open();
         // TODO: find out if this is actually necessary on Linux
@@ -138,7 +117,7 @@ export class FastbootDevice {
         do {
             let respPacket = await this.device.transferIn(0x01, 64);
             response = new TextDecoder().decode(respPacket.data);
-            logDebug('response: packet', respPacket, 'string', response);
+            common.logDebug('response: packet', respPacket, 'string', response);
 
             if (response.startsWith('OKAY')) {
                 // OKAY = end of response for this command
@@ -176,7 +155,7 @@ export class FastbootDevice {
         // Send raw UTF-8 command
         let cmdPacket = new TextEncoder('utf-8').encode(command);
         await this.device.transferOut(0x01, cmdPacket);
-        logDebug('command:', command);
+        common.logDebug('command:', command);
 
         return this.readResponse();
     }
@@ -235,7 +214,7 @@ export class FastbootDevice {
         while (remainingBytes > 0) {
             let chunk = buffer.slice(i * BULK_TRANSFER_SIZE, (i + 1) * BULK_TRANSFER_SIZE);
             if (i % 1000 == 0) {
-                logDebug(`  Sending ${chunk.byteLength} bytes to endpoint, ${remainingBytes} remaining, i=${i}`);
+                common.logDebug(`  Sending ${chunk.byteLength} bytes to endpoint, ${remainingBytes} remaining, i=${i}`);
             }
             await this.device.transferOut(0x01, chunk);
 
@@ -243,7 +222,7 @@ export class FastbootDevice {
             i += 1;
         }
 
-        logDebug(`Finished sending payload, ${remainingBytes} bytes remaining`);
+        common.logDebug(`Finished sending payload, ${remainingBytes} bytes remaining`);
     }
 
     /**
@@ -255,13 +234,13 @@ export class FastbootDevice {
      */
     async flashFile(partition, file) {
         // Prepare image if it's not sparse
-        let fileHeader = await readFileAsBuffer(file.slice(0, Sparse.FILE_HEADER_SIZE));
+        let fileHeader = await common.readFileAsBuffer(file.slice(0, Sparse.FILE_HEADER_SIZE));
         if (!Sparse.isSparse(fileHeader)) {
-            logDebug(`${partition} image is raw, converting to sparse`);
+            common.logDebug(`${partition} image is raw, converting to sparse`);
 
             // Assume that non-sparse images will always be small enough to convert in RAM.
             // The buffer is converted to a Blob for compatibility with the existing flashing code.
-            let rawData = await readFileAsBuffer(file);
+            let rawData = await common.readFileAsBuffer(file);
             let sparse = Sparse.rawToSparseImage(rawData);
             file = new Blob([sparse]);
         }
@@ -274,7 +253,7 @@ export class FastbootDevice {
         } catch (error) { /* Failed = not A/B, fallthrough */ }
 
         let maxDlSize = await this.getDownloadSize();
-        logDebug(`Flashing ${file.size} bytes to ${partition}, ${maxDlSize} bytes per chunk`);
+        common.logDebug(`Flashing ${file.size} bytes to ${partition}, ${maxDlSize} bytes per chunk`);
 
         let totalXferd = 0;
         while (totalXferd < file.size) {
@@ -297,18 +276,18 @@ export class FastbootDevice {
                 throw new FastbootError('FAIL', `Bootloader returned download size 0: ${downloadResp.text}`);
             }
 
-            logDebug(`Chunk: Flashing ${xferSize} bytes, ${file.size - totalXferd} remaining, total sent: ${totalXferd} bytes`);
-            let chunkData = await readFileAsBuffer(file.slice(totalXferd, totalXferd + xferSize));
+            common.logDebug(`Chunk: Flashing ${xferSize} bytes, ${file.size - totalXferd} remaining, total sent: ${totalXferd} bytes`);
+            let chunkData = await common.readFileAsBuffer(file.slice(totalXferd, totalXferd + xferSize));
             await this.sendRawPayload(chunkData);
 
-            logDebug('Chunk sent, waiting for response...');
+            common.logDebug('Chunk sent, waiting for response...');
             await this.readResponse();
 
-            logDebug('Flashing chunk...');
+            common.logDebug('Flashing chunk...');
             await this.sendCommand(`flash:${partition}`);
             totalXferd += xferSize;
         }
 
-        logDebug(`Flashed ${partition} in chunks of ${maxDlSize} bytes, ${file.size - totalXferd} bytes remaining`);
+        common.logDebug(`Flashed ${partition} in chunks of ${maxDlSize} bytes, ${file.size - totalXferd} bytes remaining`);
     }
 }
