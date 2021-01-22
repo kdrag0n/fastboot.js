@@ -3,6 +3,7 @@
     <head>
         <title>fastboot.js demo</title>
         <script src="common.js" type="module"></script>
+        <script src="factory.js" type="module"></script>
         <script src="sparse.js" type="module"></script>
         <script src="fastboot.js" type="module"></script>
         <script src="ui.js" type="module"></script>
@@ -39,11 +40,19 @@
             </form>
         </div>
 
+        <hr/>
+
+        <div>
+            <p>Status: <span class="factory-status-field"></span></p>
+            <button class="download-zip-button">Download factory zip</button>
+        </div>
+
         <script>
             import('./ui.js').then(ui => {
                 document.querySelector('.command-form').addEventListener('submit', ui.sendFormCommand);
                 document.querySelector('.connect-button').addEventListener('click', ui.connectDevice);
                 document.querySelector('.flash-form').addEventListener('submit', ui.flashFormFile);
+                document.querySelector('.download-zip-button').addEventListener('click', ui.downloadZip);
             });
         </script>
     </body>

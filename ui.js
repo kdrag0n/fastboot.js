@@ -1,4 +1,5 @@
 import { FastbootDevice } from './fastboot.js';
+import * as Factory from './factory.js';
 
 let device = new FastbootDevice();
 
@@ -38,4 +39,18 @@ export async function flashFormFile(event) {
     await device.flashBlob(partField.value, file);
     fileField.value = '';
     partField.value = '';
+}
+
+export async function downloadZip() {
+    let statusField = document.querySelector('.factory-status-field');
+    statusField.textContent = 'Downloading...';
+
+    try {
+        await Factory.downloadZip('/releases/taimen-factory-2021.01.06.14.zip');
+    } catch (error) {
+        statusField.textContent = `Failed to download zip: ${error.message}`;
+        return;
+    }
+
+    statusField.textContent = 'Downloaded';
 }
