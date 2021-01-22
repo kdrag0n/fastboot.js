@@ -7,6 +7,9 @@ const MINOR_VERSION = 0;
 export const FILE_HEADER_SIZE = 28;
 const CHUNK_HEADER_SIZE = 12;
 
+// AOSP libsparse uses 64 MiB chunks
+const RAW_CHUNK_SIZE = 64 * 1024 * 1024;
+
 const CHUNK_TYPE_RAW = 0xcac1;
 const CHUNK_TYPE_FILL = 0xcac2;
 const CHUNK_TYPE_SKIP = 0xcac3;
@@ -167,13 +170,17 @@ export function fromRaw(rawBuffer) {
         chunks: 1,
         crc32: 0,
     };
-    // 1 big chunk with all the raw data
-    // TODO: break up into 256/384M chunks to facilitate splitting
-    let chunks = [{
-        type: 'raw',
-        blocks: header.blocks,
-        data: rawBuffer,
-    }];
+
+    let chunks = [];
+    while (rawBuffer.byteLength > 0) {
+        let chunkSize = Math.min(rawBuffer.byteLength, RAW_CHUNK_SIZE);
+        chunks.push({
+            type: 'raw',
+            blocks: chunkSize / header.blockSize,
+            data: rawBuffer.slice(0, chunkSize),
+        });
+        rawBuffer = rawBuffer.slice(chunkSize);
+    }
 
     return createImage(header, chunks);
 }
