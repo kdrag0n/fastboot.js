@@ -1,4 +1,4 @@
-import { FastbootDevice, UsbError } from './fastboot.js';
+import { FastbootDevice } from './fastboot.js';
 
 let device = new FastbootDevice();
 
@@ -19,7 +19,9 @@ export async function connectDevice() {
     statusField.textContent = status;
 }
 
-async function _sendFormCommand() {
+export async function sendFormCommand(event) {
+    event.preventDefault();
+
     let inputField = document.querySelector('.command-input');
     let command = inputField.value;
     let result = (await device.sendCommand(command)).text;
@@ -27,23 +29,13 @@ async function _sendFormCommand() {
     inputField.value = '';
 }
 
-export function sendFormCommand(event) {
+export async function flashFormFile(event) {
     event.preventDefault();
-    _sendFormCommand();
-    return false;
-}
 
-async function _flashFormFile() {
     let fileField = document.querySelector('.flash-file');
     let partField = document.querySelector('.flash-partition');
     let file = fileField.files[0];
     await device.flashBlob(partField.value, file);
     fileField.value = '';
     partField.value = '';
-}
-
-export function flashFormFile(event) {
-    event.preventDefault();
-    _flashFormFile();
-    return false;
 }
