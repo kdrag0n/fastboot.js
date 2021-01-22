@@ -108,7 +108,7 @@ export class FastbootDevice {
      * @returns {response} Object containing response text and data size, if any.
      * @throws {FastbootError}
      */
-    async readResponse() {
+    async _readResponse() {
         let returnData = {
             text: '',
             dataSize: null,
@@ -157,7 +157,7 @@ export class FastbootDevice {
         await this.device.transferOut(0x01, cmdPacket);
         common.logDebug('command:', command);
 
-        return this.readResponse();
+        return this._readResponse();
     }
 
     /**
@@ -188,7 +188,7 @@ export class FastbootDevice {
      * @returns {downloadSize}
      * @throws {FastbootError}
      */
-    async getDownloadSize() {
+    async _getDownloadSize() {
         try {
             let resp = (await getVariable('max-download-size')).toLowerCase();
             if (resp) {
@@ -208,7 +208,7 @@ export class FastbootDevice {
      * @returns {response} Object containing response text and data size, if any.
      * @throws {FastbootError}
      */
-    async sendRawPayload(buffer) {
+    async _sendRawPayload(buffer) {
         let i = 0;
         let remainingBytes = buffer.byteLength;
         while (remainingBytes > 0) {
@@ -252,10 +252,10 @@ export class FastbootDevice {
         }
 
         common.logDebug(`Sending payload: ${buffer.byteLength} bytes`);
-        await this.sendRawPayload(buffer);
+        await this._sendRawPayload(buffer);
 
         common.logDebug('Payload sent, waiting for response...');
-        await this.readResponse();
+        await this._readResponse();
 
         common.logDebug('Flashing payload...');
         await this.sendCommand(`flash:${partition}`);
@@ -289,7 +289,7 @@ export class FastbootDevice {
         } catch (error) { /* Failed = not A/B, fallthrough */ }
 
         let splits = 0;
-        let maxDlSize = await this.getDownloadSize();
+        let maxDlSize = await this._getDownloadSize();
         common.logDebug(`Flashing ${blob.size} bytes to ${partition}, ${maxDlSize} bytes per split`);
         for await (let splitBuffer of Sparse.splitBlob(blob, maxDlSize)) {
             await this._flashSingleSparse(partition, splitBuffer, maxDlSize);
