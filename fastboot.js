@@ -12,6 +12,16 @@ const DEFAULT_DOWNLOAD_SIZE = 512 * 1024 * 1024; // 512 MiB
 // max download size even if the bootloader can accept more data.
 const MAX_DOWNLOAD_SIZE = 1024 * 1024 * 1024; // 1 GiB
 
+const BOOTLDR_IMAGE_MAGIC1 = 0x424f4f54; // BOOT
+const BOOTLDR_IMAGE_MAGIC2 = 0x4c445221; // LDR!
+
+function isBootldrImage(buffer) {
+    let view = new DataView(buffer);
+    let magic1 = view.getUint32(0);
+    let magic2 = view.getUint32(4);
+    return magic1 == BOOTLDR_IMAGE_MAGIC1 && magic2 == BOOTLDR_IMAGE_MAGIC2;
+}
+
 /** Exception class for USB or WebUSB-level errors. */
 export class UsbError extends Error {
     constructor(message) {
@@ -269,9 +279,9 @@ export class FastbootDevice {
      * @throws {FastbootError}
      */
     async flashBlob(partition, blob) {
-        // Prepare image if it's not sparse
+        // Prepare image if it's not a sparse or bootloader image
         let fileHeader = await common.readBlobAsBuffer(blob.slice(0, Sparse.FILE_HEADER_SIZE));
-        if (!Sparse.isSparse(fileHeader)) {
+        if (!Sparse.isSparse(fileHeader) && !isBootldrImage(fileHeader)) {
             common.logDebug(`${partition} image is raw, converting to sparse`);
 
             // Assume that non-sparse images will always be small enough to convert in RAM.
