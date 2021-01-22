@@ -77,3 +77,49 @@ export async function downloadZip(url) {
     store.close();
     return blob;
 }
+
+export async function flashZip(device, name) {
+    zip.configure({
+        workerScriptsPath: "/libs/",
+    });
+
+    let store = new BlobStore();
+    await store.init();
+
+    common.logDebug(`Loading ${name} as zip`);
+    let reader = new zip.ZipReader(new zip.BlobReader(await store.loadFile(name)));
+    let entries = await reader.getEntries();
+    for (let entry of entries) {
+        if (entry.filename.match(/avb_pkmd.bin$/)) {
+            common.logDebug('Flashing AVB custom key');
+            let blob = await entry.getData(new zip.BlobWriter('application/octet-stream'));
+            await device.flashBlob('avb_custom_key', blob);
+        } else if (entry.filename.match(/bootloader-.+\.img$/)) {
+            common.logDebug('Flashing bootloader image pack');
+            let blob = await entry.getData(new zip.BlobWriter('application/octet-stream'));
+            await device.flashBlob('bootloader', blob);
+        } else if (entry.filename.match(/radio-.+\.img$/)) {
+            common.logDebug('Flashing radio image pack');
+            let blob = await entry.getData(new zip.BlobWriter('application/octet-stream'));
+            await device.flashBlob('radio', blob);
+        } else if (entry.filename.match(/image-.+\.zip$/)) {
+            common.logDebug('Flashing images from nested images zip');
+            let imagesBlob = await entry.getData(new zip.BlobWriter('application/zip'));
+            let imageReader = new zip.ZipReader(new zip.BlobReader(imagesBlob));
+            let imageEntries = await imageReader.getEntries();
+
+            for (let image of imageEntries) {
+                if (!image.filename.endsWith('.img')) {
+                    continue;
+                }
+
+                common.logDebug(`Flashing ${image.filename} from images zip`);
+                let partition = image.filename.replace('.img', '');
+                let blob = await image.getData(new zip.BlobWriter('application/octet-stream'));
+                await device.flashBlob(partition, blob);
+            }
+        }
+    }
+
+    store.close();
+}
