@@ -54,3 +54,17 @@ export async function downloadZip() {
 
     statusField.textContent = 'Downloaded';
 }
+
+export async function flashZip() {
+    let statusField = document.querySelector('.factory-status-field');
+    statusField.textContent = 'Flashing...';
+
+    try {
+        await Factory.flashZip(device, 'taimen-factory-2021.01.06.14.zip');
+    } catch (error) {
+        statusField.textContent = `Failed to flash zip: ${error.message}`;
+        return;
+    }
+
+    statusField.textContent = 'Successfully flashed taimen-factory-2021.01.06.14.zip';
+}
