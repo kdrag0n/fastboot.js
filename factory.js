@@ -49,6 +49,10 @@ class BlobStore {
             return null;
         }
     }
+
+    async close() {
+        this.db.close();
+    }
 }
 
 export async function downloadZip(url) {
@@ -70,5 +74,6 @@ export async function downloadZip(url) {
         common.logDebug(`Loaded ${filename} from blob store, skipping download`);
     }
 
+    store.close();
     return blob;
 }
