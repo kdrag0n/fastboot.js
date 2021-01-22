@@ -63,7 +63,9 @@ export async function downloadZip(url) {
         common.logDebug(`Downloading ${url}`);
         let resp = await fetch(new Request(url));
         blob = await resp.blob();
+        common.logDebug('File downloaded, saving...');
         await store.saveFile(filename, blob);
+        common.logDebug('File saved');
     } else {
         common.logDebug(`Loaded ${filename} from blob store, skipping download`);
     }
