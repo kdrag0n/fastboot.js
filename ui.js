@@ -37,7 +37,7 @@ async function _flashFormFile() {
     let fileField = document.querySelector('.flash-file');
     let partField = document.querySelector('.flash-partition');
     let file = fileField.files[0];
-    await device.flashFile(partField.value, file);
+    await device.flashBlob(partField.value, file);
     fileField.value = '';
     partField.value = '';
 }

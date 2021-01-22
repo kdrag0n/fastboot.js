@@ -198,11 +198,11 @@ export async function* splitBlob(blob, splitSize) {
     // Short-circuit if splitting isn't required
     if (blob.size <= splitSize) {
         common.logDebug('Blob fits in 1 payload, not splitting');
-        yield await common.readFileAsBuffer(blob);
+        yield await common.readBlobAsBuffer(blob);
         return;
     }
 
-    let headerData = await common.readFileAsBuffer(blob.slice(0, FILE_HEADER_SIZE));
+    let headerData = await common.readBlobAsBuffer(blob.slice(0, FILE_HEADER_SIZE));
     let header = parseFileHeader(headerData);
     // Remove CRC32 (if present), otherwise splitting will invalidate it
     header.crc32 = 0;
@@ -210,9 +210,9 @@ export async function* splitBlob(blob, splitSize) {
 
     let splitChunks = [];
     for (let i = 0; i < header.chunks; i++) {
-        let chunkHeaderData = await common.readFileAsBuffer(blob.slice(0, CHUNK_HEADER_SIZE));
+        let chunkHeaderData = await common.readBlobAsBuffer(blob.slice(0, CHUNK_HEADER_SIZE));
         let chunk = parseChunkHeader(chunkHeaderData);
-        chunk.data = await common.readFileAsBuffer(blob.slice(CHUNK_HEADER_SIZE, CHUNK_HEADER_SIZE + chunk.dataBytes));
+        chunk.data = await common.readBlobAsBuffer(blob.slice(CHUNK_HEADER_SIZE, CHUNK_HEADER_SIZE + chunk.dataBytes));
         blob = blob.slice(CHUNK_HEADER_SIZE + chunk.dataBytes);
 
         let bytesRemaining = splitSize - calcChunksSize(splitChunks);

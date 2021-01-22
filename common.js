@@ -6,7 +6,7 @@ export function logDebug(...data) {
     }
 }
 
-export function readFileAsBuffer(file) {
+export function readBlobAsBuffer(blob) {
     return new Promise((resolve, reject) => {
         let reader = new FileReader();
         reader.onload = () => {
@@ -16,6 +16,6 @@ export function readFileAsBuffer(file) {
             reject(reader.error);
         };
 
-        reader.readAsArrayBuffer(file);
+        reader.readAsArrayBuffer(blob);
     });
 }

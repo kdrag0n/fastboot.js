@@ -265,20 +265,20 @@ export class FastbootDevice {
      * Flashes the given File or Blob to the given partition on the device.
      *
      * @param {string} partition - The name of the partition to flash.
-     * @param {Blob} file - The Blob to retrieve data from.
+     * @param {Blob} blob - The Blob to retrieve data from.
      * @throws {FastbootError}
      */
-    async flashFile(partition, file) {
+    async flashBlob(partition, blob) {
         // Prepare image if it's not sparse
-        let fileHeader = await common.readFileAsBuffer(file.slice(0, Sparse.FILE_HEADER_SIZE));
+        let fileHeader = await common.readBlobAsBuffer(blob.slice(0, Sparse.FILE_HEADER_SIZE));
         if (!Sparse.isSparse(fileHeader)) {
             common.logDebug(`${partition} image is raw, converting to sparse`);
 
             // Assume that non-sparse images will always be small enough to convert in RAM.
             // The buffer is converted to a Blob for compatibility with the existing flashing code.
-            let rawData = await common.readFileAsBuffer(file);
+            let rawData = await common.readBlobAsBuffer(blob);
             let sparse = Sparse.fromRaw(rawData);
-            file = new Blob([sparse]);
+            blob = new Blob([sparse]);
         }
 
         // Use current slot if partition is A/B
@@ -290,8 +290,8 @@ export class FastbootDevice {
 
         let splits = 0;
         let maxDlSize = await this.getDownloadSize();
-        common.logDebug(`Flashing ${file.size} bytes to ${partition}, ${maxDlSize} bytes per split`);
-        for await (let splitBuffer of Sparse.splitBlob(file, maxDlSize)) {
+        common.logDebug(`Flashing ${blob.size} bytes to ${partition}, ${maxDlSize} bytes per split`);
+        for await (let splitBuffer of Sparse.splitBlob(blob, maxDlSize)) {
             await this._flashSingleSparse(partition, splitBuffer, maxDlSize);
             splits += 1;
         }
