@@ -1,3 +1,5 @@
+// @license magnet:?xt=urn:btih:d3d9a9a6595521f9666a5e94cc830dab83b65699&dn=expat.txt MIT
+
 import * as Sparse from './sparse.js';
 import * as common from './common.js';
 
@@ -309,3 +311,5 @@ export class FastbootDevice {
         common.logDebug(`Flashed ${partition} with ${splits} split(s)`);
     }
 }
+
+// @license-end

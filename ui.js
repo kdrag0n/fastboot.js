@@ -1,3 +1,5 @@
+// @license magnet:?xt=urn:btih:d3d9a9a6595521f9666a5e94cc830dab83b65699&dn=expat.txt MIT
+
 import { FastbootDevice } from './fastboot.js';
 import * as Factory from './factory.js';
 
@@ -68,3 +70,5 @@ export async function flashZip() {
 
     statusField.textContent = 'Successfully flashed taimen-factory-2021.01.06.14.zip';
 }
+
+// @license-end
