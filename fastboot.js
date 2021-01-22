@@ -37,7 +37,7 @@ export class FastbootDevice {
     /**
      * Creates a new fastboot device object ready to connect to a USB device.
      * This does not actually connect to any devices.
-     * 
+     *
      * @see connect
      */
     constructor() {
@@ -47,7 +47,7 @@ export class FastbootDevice {
     /**
      * Request the user to select a USB device and attempt to connect to it
      * using the fastboot protocol.
-     * 
+     *
      * @throws {UsbError}
      */
     async connect() {
@@ -103,7 +103,7 @@ export class FastbootDevice {
 
     /**
      * Reads a raw command response from the bootloader.
-     * 
+     *
      * @private
      * @returns {response} Object containing response text and data size, if any.
      * @throws {FastbootError}
@@ -141,7 +141,7 @@ export class FastbootDevice {
     /**
      * Sends a textual command to the bootloader.
      * This is in raw fastboot format, not AOSP fastboot syntax.
-     * 
+     *
      * @param {string} command - The command to send.
      * @returns {response} Object containing response text and data size, if any.
      * @throws {FastbootError}
@@ -162,7 +162,7 @@ export class FastbootDevice {
 
     /**
      * Returns the value of a bootloader variable.
-     * 
+     *
      * @param {string} varName - The name of the variable to get.
      * @returns {value} Textual content of the variable.
      * @throws {FastbootError}
@@ -183,7 +183,7 @@ export class FastbootDevice {
 
     /**
      * Returns the maximum download size for a single payload, in bytes.
-     * 
+     *
      * @private
      * @returns {downloadSize}
      * @throws {FastbootError}
@@ -203,7 +203,7 @@ export class FastbootDevice {
 
     /**
      * Reads a raw command response from the bootloader.
-     * 
+     *
      * @private
      * @returns {response} Object containing response text and data size, if any.
      * @throws {FastbootError}
@@ -226,10 +226,46 @@ export class FastbootDevice {
     }
 
     /**
+     * Flashes a single sparse payload.
+     * Does not handle raw images or splitting.
+     *
+     * @private
+     * @throws {FastbootError}
+     */
+    async _flashSingleSparse(partition, buffer) {
+        common.logDebug(`Flashing single sparse to ${partition}: ${buffer.byteLength} bytes`);
+
+        // Bootloader requires an 8-digit hex number
+        let xferHex = buffer.byteLength.toString(16).padStart(8, '0');
+        if (xferHex.length != 8) {
+            throw new FastbootError('FAIL', `Transfer size overflow: ${xferHex} is more than 8 digits`);
+        }
+
+        // Check with the device and make sure size matches
+        let downloadResp = await this.sendCommand(`download:${xferHex}`);
+        if (downloadResp.dataSize == null) {
+            throw new FastbootError('FAIL', `Unexpected response to download command: ${downloadResp.text}`);
+        }
+        let downloadSize = parseInt(downloadResp.dataSize, 16);
+        if (downloadSize != buffer.byteLength) {
+            throw new FastbootError('FAIL', `Bootloader wants ${buffer.byteLength} bytes, requested to send ${buffer.bytelength} bytes`);
+        }
+
+        common.logDebug(`Sending payload: ${buffer.byteLength} bytes`);
+        await this.sendRawPayload(buffer);
+
+        common.logDebug('Payload sent, waiting for response...');
+        await this.readResponse();
+
+        common.logDebug('Flashing payload...');
+        await this.sendCommand(`flash:${partition}`);
+    }
+
+    /**
      * Flashes the given File or Blob to the given partition on the device.
      *
      * @param {string} partition - The name of the partition to flash.
-     * @param {Blob} file - The Blob or File to retrieve data from.
+     * @param {Blob} file - The Blob to retrieve data from.
      * @throws {FastbootError}
      */
     async flashFile(partition, file) {
@@ -252,42 +288,14 @@ export class FastbootDevice {
             }
         } catch (error) { /* Failed = not A/B, fallthrough */ }
 
+        let splits = 0;
         let maxDlSize = await this.getDownloadSize();
-        common.logDebug(`Flashing ${file.size} bytes to ${partition}, ${maxDlSize} bytes per chunk`);
-
-        let totalXferd = 0;
-        while (totalXferd < file.size) {
-            // Try to transfer as much as possible in this chunk
-            let xferSize = Math.min(file.size - totalXferd, maxDlSize);
-            // Bootloader requires an 8-digit hex number
-            let xferHex = xferSize.toString(16).padStart(8, '0');
-            if (xferHex.length != 8) {
-                throw new FastbootError('FAIL', `Transfer size overflow: ${xferHex} is more than 8 digits`);
-            }
-
-            // Check with the device and make sure size matches
-            let downloadResp = await this.sendCommand(`download:${xferHex}`);
-            if (downloadResp.dataSize == null) {
-                throw new FastbootError('FAIL', `Unexpected response to download command: ${downloadResp.text}`);
-            }
-            xferSize = parseInt(downloadResp.dataSize, 16);
-            // Sanity check: we'll end up in an infinite loop if size is 0
-            if (xferSize == 0) {
-                throw new FastbootError('FAIL', `Bootloader returned download size 0: ${downloadResp.text}`);
-            }
-
-            common.logDebug(`Chunk: Flashing ${xferSize} bytes, ${file.size - totalXferd} remaining, total sent: ${totalXferd} bytes`);
-            let chunkData = await common.readFileAsBuffer(file.slice(totalXferd, totalXferd + xferSize));
-            await this.sendRawPayload(chunkData);
-
-            common.logDebug('Chunk sent, waiting for response...');
-            await this.readResponse();
-
-            common.logDebug('Flashing chunk...');
-            await this.sendCommand(`flash:${partition}`);
-            totalXferd += xferSize;
+        common.logDebug(`Flashing ${file.size} bytes to ${partition}, ${maxDlSize} bytes per split`);
+        for await (let splitBuffer of Sparse.splitBlob(file, maxDlSize)) {
+            await this._flashSingleSparse(partition, splitBuffer, maxDlSize);
+            splits += 1;
         }
 
-        common.logDebug(`Flashed ${partition} in chunks of ${maxDlSize} bytes, ${file.size - totalXferd} bytes remaining`);
+        common.logDebug(`Flashed ${partition} with ${splits} split(s)`);
     }
 }

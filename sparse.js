@@ -9,7 +9,12 @@ const CHUNK_HEADER_SIZE = 12;
 
 const CHUNK_TYPE_RAW = 0xcac1;
 const CHUNK_TYPE_FILL = 0xcac2;
-const CHUNK_TYPE_IGNORE = 0xcac3;
+const CHUNK_TYPE_SKIP = 0xcac3;
+
+const CHUNK_TYPE_MAP = new Map();
+CHUNK_TYPE_MAP.set(CHUNK_TYPE_RAW, 'raw');
+CHUNK_TYPE_MAP.set(CHUNK_TYPE_FILL, 'fill');
+CHUNK_TYPE_MAP.set(CHUNK_TYPE_SKIP, 'skip');
 
 export class ImageError extends Error {
     constructor(message) {
@@ -18,7 +23,7 @@ export class ImageError extends Error {
     }
 }
 
-function parseHeader(buffer) {
+function parseFileHeader(buffer) {
     let view = new DataView(buffer);
 
     let magic = view.getUint32(0, true);
@@ -52,13 +57,38 @@ function parseHeader(buffer) {
     };
 }
 
-function createImage(header, chunks) {
+function parseChunkHeader(buffer) {
+    let view = new DataView(buffer);
+
+    // This isn't the same as what createImage takes.
+    // Further processing needs to be done on the chunks.
+    return {
+        type: CHUNK_TYPE_MAP.get(view.getUint16(0, true)),
+        /* 2: reserved, 16 bits */
+        blocks: view.getUint32(4, true),
+        dataBytes: view.getUint32(8, true) - CHUNK_HEADER_SIZE,
+        data: null, // to be populated by consumer
+    };
+}
+
+function calcChunksBlockSize(chunks) {
+    return chunks.map(chunk => chunk.blocks)
+                 .reduce((total, c) => total + c, 0);
+}
+
+function calcChunksDataSize(chunks) {
+    return chunks.map(chunk => chunk.data.byteLength)
+                 .reduce((total, c) => total + c, 0);
+}
+
+function calcChunksSize(chunks) {
     // 28-byte file header, 12-byte chunk headers
     let overhead = FILE_HEADER_SIZE + CHUNK_HEADER_SIZE * chunks.length;
-    let totalData = chunks.map(chunk => chunk.data.byteLength)
-                          .reduce((total, c) => total + c);
+    return overhead + calcChunksDataSize(chunks);
+}
 
-    let buffer = new ArrayBuffer(overhead + totalData);
+function createImage(header, chunks) {
+    let buffer = new ArrayBuffer(calcChunksSize(chunks));
     let dataView = new DataView(buffer);
     let arrayView = new Uint8Array(buffer);
 
@@ -86,8 +116,8 @@ function createImage(header, chunks) {
             typeMagic = CHUNK_TYPE_RAW;
         } else if (chunk.type == 'fill') {
             typeMagic = CHUNK_TYPE_FILL;
-        } else if (chunk.type == 'ignore') {
-            typeMagic = CHUNK_TYPE_IGNORE;
+        } else if (chunk.type == 'skip') {
+            typeMagic = CHUNK_TYPE_SKIP;
         } else {
             // We don't support the undocumented 0xCAC4 CRC32 chunk type because
             // it's unnecessary and very rarely used in practice.
@@ -110,13 +140,13 @@ function createImage(header, chunks) {
 
 /**
  * Checks whether the given buffer is a valid sparse image.
- * 
+ *
  * @param {ArrayBuffer} buffer - Buffer containing the data to check.
  * @returns {valid} Whether the buffer is a valid sparse image.
  */
 export function isSparse(buffer) {
     try {
-        let header = parseHeader(buffer);
+        let header = parseFileHeader(buffer);
         return header != null;
     } catch (error) {
         // ImageError = invalid
@@ -126,7 +156,7 @@ export function isSparse(buffer) {
 
 /**
  * Creates a sparse image from buffer containing raw image data.
- * 
+ *
  * @param {ArrayBuffer} rawBuffer - Buffer containing the raw image data.
  * @returns {sparseBuffer} Buffer containing the new sparse image.
  */
@@ -146,4 +176,78 @@ export function fromRaw(rawBuffer) {
     }];
 
     return createImage(header, chunks);
+}
+
+/**
+ * Split a sparse image into smaller sparse images within the given size.
+ * This takes a Blob instead of an ArrayBuffer because it may process images
+ * larger than RAM.
+ *
+ * @param {Blob} blob - Blob containing the sparse image to split.
+ * @param {number} splitSize - Maximum size per split.
+ */
+export async function* splitBlob(blob, splitSize) {
+    common.logDebug(`Splitting ${blob.size}-byte sparse image into ${splitSize}-byte chunks`);
+    // Short-circuit if splitting isn't required
+    if (blob.size <= splitSize) {
+        common.logDebug('Blob fits in 1 payload, not splitting');
+        yield await common.readFileAsBuffer(blob);
+        return;
+    }
+
+    let headerData = await common.readFileAsBuffer(blob.slice(0, FILE_HEADER_SIZE));
+    let header = parseFileHeader(headerData);
+    // Remove CRC32 (if present), otherwise splitting will invalidate it
+    header.crc32 = 0;
+    blob = blob.slice(FILE_HEADER_SIZE);
+
+    let splitChunks = [];
+    for (let i = 0; i < header.chunks; i++) {
+        let chunkHeaderData = await common.readFileAsBuffer(blob.slice(0, CHUNK_HEADER_SIZE));
+        let chunk = parseChunkHeader(chunkHeaderData);
+        chunk.data = await common.readFileAsBuffer(blob.slice(CHUNK_HEADER_SIZE, CHUNK_HEADER_SIZE + chunk.dataBytes));
+        blob = blob.slice(CHUNK_HEADER_SIZE + chunk.dataBytes);
+
+        let bytesRemaining = splitSize - calcChunksSize(splitChunks);
+        common.logDebug(`  Chunk ${i}: type ${chunk.type}, ${chunk.dataBytes} bytes / ${chunk.blocks} blocks, ${bytesRemaining} bytes remaining`);
+        if (bytesRemaining >= chunk.dataBytes) {
+            // Read the chunk and add it
+            common.logDebug(`    Space is available, adding chunk`);
+            splitChunks.push(chunk);
+        } else {
+            // Out of space, finish this split
+            // Blocks need to be calculated from chunk headers instead of going by size
+            // because FILL and SKIP chunks cover more blocks than the data they contain.
+            let splitBlocks = calcChunksBlockSize(splitChunks);
+            splitChunks.push({
+                type: 'skip',
+                blocks: header.blocks - splitBlocks,
+                data: new ArrayBuffer(),
+            });
+            common.logDebug(`Partition is ${header.blocks} blocks, used ${splitBlocks}, padded with ${header.blocks - splitBlocks}, finishing split with ${calcChunksBlockSize(splitChunks)} blocks`);
+            let splitImage = createImage(header, splitChunks);
+            common.logDebug(`Finished ${splitImage.byteLength}-byte split with ${splitChunks.length} chunks`);
+            yield splitImage;
+
+            // Start a new split. Every split is considered a full image by the
+            // bootloader, so we need to skip the *total* written blocks.
+            common.logDebug(`Starting new split: skipping first ${splitBlocks} blocks and adding chunk`);
+            splitChunks = [
+                {
+                    type: 'skip',
+                    blocks: splitBlocks,
+                    data: new ArrayBuffer(),
+                },
+                chunk,
+            ];
+        }
+    }
+
+    // Finish the final split if necessary
+    if (splitChunks.length > 0 &&
+            (splitChunks.length > 1 || splitChunks[0].type != 'skip')) {
+        let splitImage = createImage(header, splitChunks);
+        common.logDebug(`Finishing final ${splitImage.byteLength}-byte split with ${splitChunks.length} chunks`);
+        yield splitImage;
+    }
 }
