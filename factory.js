@@ -11,10 +11,10 @@ class BlobStore {
 
     async _wrapReq(request, onUpgrade = null) {
         return new Promise((resolve, reject) => {
-            request.onsuccess = (event) => {
+            request.onsuccess = () => {
                 resolve(request.result);
             };
-            request.oncomplete = (event) => {
+            request.oncomplete = () => {
                 resolve(request.result);
             };
             request.onerror = (event) => {
@@ -78,6 +78,8 @@ export async function downloadZip(url) {
     return blob;
 }
 
+// zip.js is loaded separately.
+/* eslint-disable no-undef */
 async function flashEntryBlob(device, entry, progressCallback, partition) {
     progressCallback("unpack", partition);
     let blob = await entry.getData(new zip.BlobWriter("application/octet-stream"));
