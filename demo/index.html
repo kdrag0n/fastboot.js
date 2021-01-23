@@ -53,6 +53,10 @@
         </div>
 
         <script>
+            zip.configure({
+                workerScriptsPath: "/libs/",
+            });
+
             import("./ui.js").then(ui => {
                 document.querySelector(".command-form").addEventListener("submit", ui.sendFormCommand);
                 document.querySelector(".connect-button").addEventListener("click", ui.connectDevice);

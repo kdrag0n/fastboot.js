@@ -85,10 +85,6 @@ async function flashEntryBlob(device, entry, partition) {
 }
 
 export async function flashZip(device, name, progressCallback = () => {}) {
-    zip.configure({
-        workerScriptsPath: "/libs/",
-    });
-
     let store = new BlobStore();
     await store.init();
 
