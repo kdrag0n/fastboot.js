@@ -78,12 +78,12 @@ function parseChunkHeader(buffer) {
 
 function calcChunksBlockSize(chunks) {
     return chunks.map(chunk => chunk.blocks)
-                 .reduce((total, c) => total + c, 0);
+        .reduce((total, c) => total + c, 0);
 }
 
 function calcChunksDataSize(chunks) {
     return chunks.map(chunk => chunk.data.byteLength)
-                 .reduce((total, c) => total + c, 0);
+        .reduce((total, c) => total + c, 0);
 }
 
 function calcChunksSize(chunks) {
@@ -221,7 +221,7 @@ export async function* splitBlob(blob, splitSize) {
         common.logDebug(`  Chunk ${i}: type ${chunk.type}, ${chunk.dataBytes} bytes / ${chunk.blocks} blocks, ${bytesRemaining} bytes remaining`);
         if (bytesRemaining >= chunk.dataBytes) {
             // Read the chunk and add it
-            common.logDebug(`    Space is available, adding chunk`);
+            common.logDebug("    Space is available, adding chunk");
             splitChunks.push(chunk);
         } else {
             // Out of space, finish this split
