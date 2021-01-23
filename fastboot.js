@@ -72,7 +72,7 @@ export class FastbootDevice {
                 { vendorId: 0x18d1, productId: 0x4ee0 },
             ],
         });
-        common.logDebug("dev", this.device);
+        common.logDebug("Got USB device:", this.device);
 
         // Validate device
         let ife = this.device.configurations[0].interfaces[0].alternates[0];
@@ -89,7 +89,7 @@ export class FastbootDevice {
         let epIn = null;
         let epOut = null;
         for (let endpoint of ife.endpoints) {
-            common.logDebug("check endpoint", endpoint)
+            common.logDebug("Checking endpoint:", endpoint);
             if (endpoint.type != "bulk") {
                 throw new UsbError("Interface endpoint is not bulk");
             }
@@ -108,7 +108,7 @@ export class FastbootDevice {
                 }
             }
         }
-        common.logDebug("eps: in", epIn, "out", epOut);
+        common.logDebug("Endpoints: in =", epIn, ", out =", epOut);
 
         await this.device.open();
         // TODO: find out if this is actually necessary on Linux
