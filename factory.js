@@ -79,8 +79,10 @@ export async function downloadZip(url) {
     return blob;
 }
 
-async function flashEntryBlob(device, entry, partition) {
+async function flashEntryBlob(device, entry, progressCallback, partition) {
+    progressCallback("unpack", partition);
     let blob = await entry.getData(new zip.BlobWriter("application/octet-stream"));
+    progressCallback("flash", partition);
     await device.flashBlob(partition, blob);
 }
 
@@ -94,31 +96,26 @@ export async function flashZip(device, name, progressCallback = () => {}) {
     for (let entry of entries) {
         if (entry.filename.match(/avb_pkmd.bin$/)) {
             common.logDebug("Flashing AVB custom key");
-            progressCallback("verified boot key");
-            await flashEntryBlob(device, entry, "avb_custom_key");
+            await flashEntryBlob(device, entry, progressCallback, "avb_custom_key");
         } else if (entry.filename.match(/bootloader-.+\.img$/)) {
             common.logDebug("Flashing bootloader image pack");
-            progressCallback("bootloader");
-            await flashEntryBlob(device, entry, "bootloader");
+            await flashEntryBlob(device, entry, progressCallback, "bootloader");
         } else if (entry.filename.match(/radio-.+\.img$/)) {
             common.logDebug("Flashing radio image pack");
-            progressCallback("radio");
-            await flashEntryBlob(device, entry, "radio");
+            await flashEntryBlob(device, entry, progressCallback, "radio");
         } else if (entry.filename.match(/image-.+\.zip$/)) {
             common.logDebug("Flashing images from nested images zip");
+
             let imagesBlob = await entry.getData(new zip.BlobWriter("application/zip"));
             let imageReader = new zip.ZipReader(new zip.BlobReader(imagesBlob));
-            let imageEntries = await imageReader.getEntries();
-
-            for (let image of imageEntries) {
+            for (let image of await imageReader.getEntries()) {
                 if (!image.filename.endsWith(".img")) {
                     continue;
                 }
 
                 common.logDebug(`Flashing ${image.filename} from images zip`);
                 let partition = image.filename.replace(".img", "");
-                progressCallback("partition");
-                await flashEntryBlob(device, image, partition);
+                await flashEntryBlob(device, image, progressCallback, partition);
             }
         }
     }
