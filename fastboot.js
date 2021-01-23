@@ -206,7 +206,7 @@ export class FastbootDevice {
      */
     async _getDownloadSize() {
         try {
-            let resp = (await getVariable("max-download-size")).toLowerCase();
+            let resp = (await this.getVariable("max-download-size")).toLowerCase();
             if (resp) {
                 // AOSP fastboot requires hex
                 return Math.min(parseInt(resp, 16), MAX_DOWNLOAD_SIZE);
