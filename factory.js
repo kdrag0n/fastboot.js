@@ -63,7 +63,6 @@ export async function downloadZip(url) {
 
     let filename = url.split("/").pop();
     let blob = await store.loadFile(filename);
-    console.log(blob);
     if (blob == null) {
         common.logDebug(`Downloading ${url}`);
         let resp = await fetch(new Request(url));
