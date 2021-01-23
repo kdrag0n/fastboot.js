@@ -79,7 +79,12 @@ export async function downloadZip(url) {
     return blob;
 }
 
-export async function flashZip(device, name) {
+async function flashEntryBlob(device, entry, partition) {
+    let blob = await entry.getData(new zip.BlobWriter("application/octet-stream"));
+    await device.flashBlob(partition, blob);
+}
+
+export async function flashZip(device, name, progressCallback = () => {}) {
     zip.configure({
         workerScriptsPath: "/libs/",
     });
@@ -93,16 +98,16 @@ export async function flashZip(device, name) {
     for (let entry of entries) {
         if (entry.filename.match(/avb_pkmd.bin$/)) {
             common.logDebug("Flashing AVB custom key");
-            let blob = await entry.getData(new zip.BlobWriter("application/octet-stream"));
-            await device.flashBlob("avb_custom_key", blob);
+            progressCallback("verified boot key");
+            await flashEntryBlob(device, entry, "avb_custom_key");
         } else if (entry.filename.match(/bootloader-.+\.img$/)) {
             common.logDebug("Flashing bootloader image pack");
-            let blob = await entry.getData(new zip.BlobWriter("application/octet-stream"));
-            await device.flashBlob("bootloader", blob);
+            progressCallback("bootloader");
+            await flashEntryBlob(device, entry, "bootloader");
         } else if (entry.filename.match(/radio-.+\.img$/)) {
             common.logDebug("Flashing radio image pack");
-            let blob = await entry.getData(new zip.BlobWriter("application/octet-stream"));
-            await device.flashBlob("radio", blob);
+            progressCallback("radio");
+            await flashEntryBlob(device, entry, "radio");
         } else if (entry.filename.match(/image-.+\.zip$/)) {
             common.logDebug("Flashing images from nested images zip");
             let imagesBlob = await entry.getData(new zip.BlobWriter("application/zip"));
@@ -116,8 +121,8 @@ export async function flashZip(device, name) {
 
                 common.logDebug(`Flashing ${image.filename} from images zip`);
                 let partition = image.filename.replace(".img", "");
-                let blob = await image.getData(new zip.BlobWriter("application/octet-stream"));
-                await device.flashBlob(partition, blob);
+                progressCallback("partition");
+                await flashEntryBlob(device, image, partition);
             }
         }
     }
