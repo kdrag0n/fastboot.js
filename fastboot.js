@@ -1,7 +1,7 @@
 // @license magnet:?xt=urn:btih:d3d9a9a6595521f9666a5e94cc830dab83b65699&dn=expat.txt MIT
 
-import * as Sparse from './sparse.js';
-import * as common from './common.js';
+import * as Sparse from "./sparse.js";
+import * as common from "./common.js";
 
 const FASTBOOT_USB_CLASS = 0xff;
 const FASTBOOT_USB_SUBCLASS = 0x42;
@@ -68,43 +68,43 @@ export class FastbootDevice {
                 { vendorId: 0x18d1, productId: 0x4ee0 },
             ],
         });
-        common.logDebug('dev', this.device);
+        common.logDebug("dev", this.device);
 
         // Validate device
         let ife = this.device.configurations[0].interfaces[0].alternates[0];
         if (ife.endpoints.length != 2) {
-            throw new UsbError('Interface has wrong number of endpoints');
+            throw new UsbError("Interface has wrong number of endpoints");
         }
 
         if (ife.interfaceClass != FASTBOOT_USB_CLASS ||
                 ife.interfaceSubclass != FASTBOOT_USB_SUBCLASS ||
                 ife.interfaceProtocol != FASTBOOT_USB_PROTOCOL) {
-            throw new UsbError('Interface has wrong class, subclass, or protocol');
+            throw new UsbError("Interface has wrong class, subclass, or protocol");
         }
 
         let epIn = null;
         let epOut = null;
         for (let endpoint of ife.endpoints) {
-            common.logDebug('check endpoint', endpoint)
-            if (endpoint.type != 'bulk') {
-                throw new UsbError('Interface endpoint is not bulk');
+            common.logDebug("check endpoint", endpoint)
+            if (endpoint.type != "bulk") {
+                throw new UsbError("Interface endpoint is not bulk");
             }
 
-            if (endpoint.direction == 'in') {
+            if (endpoint.direction == "in") {
                 if (epIn == null) {
                     epIn = endpoint.endpointNumber;
                 } else {
-                    throw new UsbError('Interface has multiple IN endpoints');
+                    throw new UsbError("Interface has multiple IN endpoints");
                 }
-            } else if (endpoint.direction == 'out') {
+            } else if (endpoint.direction == "out") {
                 if (epOut == null) {
                     epOut = endpoint.endpointNumber;
                 } else {
-                    throw new UsbError('Interface has multiple OUT endpoints');
+                    throw new UsbError("Interface has multiple OUT endpoints");
                 }
             }
         }
-        common.logDebug('eps: in', epIn, 'out', epOut);
+        common.logDebug("eps: in", epIn, "out", epOut);
 
         await this.device.open();
         // TODO: find out if this is actually necessary on Linux
@@ -122,30 +122,30 @@ export class FastbootDevice {
      */
     async _readResponse() {
         let returnData = {
-            text: '',
+            text: "",
             dataSize: null,
         };
         let response;
         do {
             let respPacket = await this.device.transferIn(0x01, 64);
             response = new TextDecoder().decode(respPacket.data);
-            common.logDebug('response: packet', respPacket, 'string', response);
+            common.logDebug("response: packet", respPacket, "string", response);
 
-            if (response.startsWith('OKAY')) {
+            if (response.startsWith("OKAY")) {
                 // OKAY = end of response for this command
                 returnData.text += response.substring(4);
-            } else if (response.startsWith('INFO')) {
+            } else if (response.startsWith("INFO")) {
                 // INFO = additional info line
-                returnData.text += response.substring(4) + '\n';
-            } else if (response.startsWith('DATA')) {
-                // DATA = hex string, but it's returned separately for safety
+                returnData.text += response.substring(4) + "\n";
+            } else if (response.startsWith("DATA")) {
+                // DATA = hex string, but it"s returned separately for safety
                 returnData.dataSize = response.substring(4);
             } else {
                 // Assume FAIL or garbage data
                 throw new FastbootError(response.substring(0, 4), response.substring(4));
             }
         // INFO means that more packets are coming
-        } while (response.startsWith('INFO'));
+        } while (response.startsWith("INFO"));
 
         return returnData;
     }
@@ -165,9 +165,9 @@ export class FastbootDevice {
         }
 
         // Send raw UTF-8 command
-        let cmdPacket = new TextEncoder('utf-8').encode(command);
+        let cmdPacket = new TextEncoder("utf-8").encode(command);
         await this.device.transferOut(0x01, cmdPacket);
-        common.logDebug('command:', command);
+        common.logDebug("command:", command);
 
         return this._readResponse();
     }
@@ -189,7 +189,7 @@ export class FastbootDevice {
             return resp;
         } else {
             // Throw an error for compatibility reasons
-            throw new FastbootError('FAIL', 'No such variable (OKAY)');
+            throw new FastbootError("FAIL", "No such variable (OKAY)");
         }
     }
 
@@ -202,7 +202,7 @@ export class FastbootDevice {
      */
     async _getDownloadSize() {
         try {
-            let resp = (await getVariable('max-download-size')).toLowerCase();
+            let resp = (await getVariable("max-download-size")).toLowerCase();
             if (resp) {
                 // AOSP fastboot requires hex
                 return Math.min(parseInt(resp, 16), MAX_DOWNLOAD_SIZE);
@@ -248,28 +248,28 @@ export class FastbootDevice {
         common.logDebug(`Flashing single sparse to ${partition}: ${buffer.byteLength} bytes`);
 
         // Bootloader requires an 8-digit hex number
-        let xferHex = buffer.byteLength.toString(16).padStart(8, '0');
+        let xferHex = buffer.byteLength.toString(16).padStart(8, "0");
         if (xferHex.length != 8) {
-            throw new FastbootError('FAIL', `Transfer size overflow: ${xferHex} is more than 8 digits`);
+            throw new FastbootError("FAIL", `Transfer size overflow: ${xferHex} is more than 8 digits`);
         }
 
         // Check with the device and make sure size matches
         let downloadResp = await this.sendCommand(`download:${xferHex}`);
         if (downloadResp.dataSize == null) {
-            throw new FastbootError('FAIL', `Unexpected response to download command: ${downloadResp.text}`);
+            throw new FastbootError("FAIL", `Unexpected response to download command: ${downloadResp.text}`);
         }
         let downloadSize = parseInt(downloadResp.dataSize, 16);
         if (downloadSize != buffer.byteLength) {
-            throw new FastbootError('FAIL', `Bootloader wants ${buffer.byteLength} bytes, requested to send ${buffer.bytelength} bytes`);
+            throw new FastbootError("FAIL", `Bootloader wants ${buffer.byteLength} bytes, requested to send ${buffer.bytelength} bytes`);
         }
 
         common.logDebug(`Sending payload: ${buffer.byteLength} bytes`);
         await this._sendRawPayload(buffer);
 
-        common.logDebug('Payload sent, waiting for response...');
+        common.logDebug("Payload sent, waiting for response...");
         await this._readResponse();
 
-        common.logDebug('Flashing payload...');
+        common.logDebug("Flashing payload...");
         await this.sendCommand(`flash:${partition}`);
     }
 
@@ -295,8 +295,8 @@ export class FastbootDevice {
 
         // Use current slot if partition is A/B
         try {
-            if (await this.getVariable(`has-slot:${partition}`) == 'yes') {
-                partition += '_' + await this.getVariable('current-slot');
+            if (await this.getVariable(`has-slot:${partition}`) == "yes") {
+                partition += "_" + await this.getVariable("current-slot");
             }
         } catch (error) { /* Failed = not A/B, fallthrough */ }
 

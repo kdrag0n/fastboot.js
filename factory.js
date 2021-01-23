@@ -1,7 +1,7 @@
 // @license magnet:?xt=urn:btih:d3d9a9a6595521f9666a5e94cc830dab83b65699&dn=expat.txt MIT
 
-import { FastbootDevice } from './fastboot.js';
-import * as common from './common.js';
+import { FastbootDevice } from "./fastboot.js";
+import * as common from "./common.js";
 
 const DB_VERSION = 1;
 
@@ -62,16 +62,16 @@ export async function downloadZip(url) {
     let store = new BlobStore();
     await store.init();
 
-    let filename = url.split('/').pop();
+    let filename = url.split("/").pop();
     let blob = await store.loadFile(filename);
     console.log(blob);
     if (blob == null) {
         common.logDebug(`Downloading ${url}`);
         let resp = await fetch(new Request(url));
         blob = await resp.blob();
-        common.logDebug('File downloaded, saving...');
+        common.logDebug("File downloaded, saving...");
         await store.saveFile(filename, blob);
-        common.logDebug('File saved');
+        common.logDebug("File saved");
     } else {
         common.logDebug(`Loaded ${filename} from blob store, skipping download`);
     }
@@ -93,31 +93,31 @@ export async function flashZip(device, name) {
     let entries = await reader.getEntries();
     for (let entry of entries) {
         if (entry.filename.match(/avb_pkmd.bin$/)) {
-            common.logDebug('Flashing AVB custom key');
-            let blob = await entry.getData(new zip.BlobWriter('application/octet-stream'));
-            await device.flashBlob('avb_custom_key', blob);
+            common.logDebug("Flashing AVB custom key");
+            let blob = await entry.getData(new zip.BlobWriter("application/octet-stream"));
+            await device.flashBlob("avb_custom_key", blob);
         } else if (entry.filename.match(/bootloader-.+\.img$/)) {
-            common.logDebug('Flashing bootloader image pack');
-            let blob = await entry.getData(new zip.BlobWriter('application/octet-stream'));
-            await device.flashBlob('bootloader', blob);
+            common.logDebug("Flashing bootloader image pack");
+            let blob = await entry.getData(new zip.BlobWriter("application/octet-stream"));
+            await device.flashBlob("bootloader", blob);
         } else if (entry.filename.match(/radio-.+\.img$/)) {
-            common.logDebug('Flashing radio image pack');
-            let blob = await entry.getData(new zip.BlobWriter('application/octet-stream'));
-            await device.flashBlob('radio', blob);
+            common.logDebug("Flashing radio image pack");
+            let blob = await entry.getData(new zip.BlobWriter("application/octet-stream"));
+            await device.flashBlob("radio", blob);
         } else if (entry.filename.match(/image-.+\.zip$/)) {
-            common.logDebug('Flashing images from nested images zip');
-            let imagesBlob = await entry.getData(new zip.BlobWriter('application/zip'));
+            common.logDebug("Flashing images from nested images zip");
+            let imagesBlob = await entry.getData(new zip.BlobWriter("application/zip"));
             let imageReader = new zip.ZipReader(new zip.BlobReader(imagesBlob));
             let imageEntries = await imageReader.getEntries();
 
             for (let image of imageEntries) {
-                if (!image.filename.endsWith('.img')) {
+                if (!image.filename.endsWith(".img")) {
                     continue;
                 }
 
                 common.logDebug(`Flashing ${image.filename} from images zip`);
-                let partition = image.filename.replace('.img', '');
-                let blob = await image.getData(new zip.BlobWriter('application/octet-stream'));
+                let partition = image.filename.replace(".img", "");
+                let blob = await image.getData(new zip.BlobWriter("application/octet-stream"));
                 await device.flashBlob(partition, blob);
             }
         }

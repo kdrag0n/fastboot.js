@@ -1,6 +1,6 @@
 // @license magnet:?xt=urn:btih:d3d9a9a6595521f9666a5e94cc830dab83b65699&dn=expat.txt MIT
 
-import * as common from './common.js';
+import * as common from "./common.js";
 
 const FILE_MAGIC = 0xed26ff3a;
 
@@ -17,9 +17,9 @@ const CHUNK_TYPE_FILL = 0xcac2;
 const CHUNK_TYPE_SKIP = 0xcac3;
 
 const CHUNK_TYPE_MAP = new Map();
-CHUNK_TYPE_MAP.set(CHUNK_TYPE_RAW, 'raw');
-CHUNK_TYPE_MAP.set(CHUNK_TYPE_FILL, 'fill');
-CHUNK_TYPE_MAP.set(CHUNK_TYPE_SKIP, 'skip');
+CHUNK_TYPE_MAP.set(CHUNK_TYPE_RAW, "raw");
+CHUNK_TYPE_MAP.set(CHUNK_TYPE_FILL, "fill");
+CHUNK_TYPE_MAP.set(CHUNK_TYPE_SKIP, "skip");
 
 export class ImageError extends Error {
     constructor(message) {
@@ -109,7 +109,7 @@ function createImage(header, chunks) {
     dataView.setUint32(16, header.blocks, true);
     dataView.setUint32(20, chunks.length, true);
 
-    // We don't care about the CRC. AOSP docs specify that this should be a CRC32,
+    // We don"t care about the CRC. AOSP docs specify that this should be a CRC32,
     // but AOSP libsparse always sets 0 and puts the CRC in a final undocumented
     // 0xCAC4 chunk instead.
     dataView.setUint32(24, 0, true);
@@ -117,16 +117,16 @@ function createImage(header, chunks) {
     let chunkOff = FILE_HEADER_SIZE;
     for (let chunk of chunks) {
         let typeMagic;
-        if (chunk.type == 'raw') {
+        if (chunk.type == "raw") {
             typeMagic = CHUNK_TYPE_RAW;
-        } else if (chunk.type == 'fill') {
+        } else if (chunk.type == "fill") {
             typeMagic = CHUNK_TYPE_FILL;
-        } else if (chunk.type == 'skip') {
+        } else if (chunk.type == "skip") {
             typeMagic = CHUNK_TYPE_SKIP;
         } else {
-            // We don't support the undocumented 0xCAC4 CRC32 chunk type because
-            // it's unnecessary and very rarely used in practice.
-            throw new ImageError(`Invalid chunk type '${chunk.type}'`);
+            // We don"t support the undocumented 0xCAC4 CRC32 chunk type because
+            // it"s unnecessary and very rarely used in practice.
+            throw new ImageError(`Invalid chunk type "${chunk.type}"`);
         }
 
         dataView.setUint16(chunkOff, typeMagic, true);
@@ -177,7 +177,7 @@ export function fromRaw(rawBuffer) {
     while (rawBuffer.byteLength > 0) {
         let chunkSize = Math.min(rawBuffer.byteLength, RAW_CHUNK_SIZE);
         chunks.push({
-            type: 'raw',
+            type: "raw",
             blocks: chunkSize / header.blockSize,
             data: rawBuffer.slice(0, chunkSize),
         });
@@ -199,7 +199,7 @@ export async function* splitBlob(blob, splitSize) {
     common.logDebug(`Splitting ${blob.size}-byte sparse image into ${splitSize}-byte chunks`);
     // Short-circuit if splitting isn't required
     if (blob.size <= splitSize) {
-        common.logDebug('Blob fits in 1 payload, not splitting');
+        common.logDebug("Blob fits in 1 payload, not splitting");
         yield await common.readBlobAsBuffer(blob);
         return;
     }
@@ -229,7 +229,7 @@ export async function* splitBlob(blob, splitSize) {
             // because FILL and SKIP chunks cover more blocks than the data they contain.
             let splitBlocks = calcChunksBlockSize(splitChunks);
             splitChunks.push({
-                type: 'skip',
+                type: "skip",
                 blocks: header.blocks - splitBlocks,
                 data: new ArrayBuffer(),
             });
@@ -243,7 +243,7 @@ export async function* splitBlob(blob, splitSize) {
             common.logDebug(`Starting new split: skipping first ${splitBlocks} blocks and adding chunk`);
             splitChunks = [
                 {
-                    type: 'skip',
+                    type: "skip",
                     blocks: splitBlocks,
                     data: new ArrayBuffer(),
                 },
@@ -254,7 +254,7 @@ export async function* splitBlob(blob, splitSize) {
 
     // Finish the final split if necessary
     if (splitChunks.length > 0 &&
-            (splitChunks.length > 1 || splitChunks[0].type != 'skip')) {
+            (splitChunks.length > 1 || splitChunks[0].type != "skip")) {
         let splitImage = createImage(header, splitChunks);
         common.logDebug(`Finishing final ${splitImage.byteLength}-byte split with ${splitChunks.length} chunks`);
         yield splitImage;
