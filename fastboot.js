@@ -69,7 +69,11 @@ export class FastbootDevice {
     async connect() {
         this.device = await navigator.usb.requestDevice({
             filters: [
-                { vendorId: 0x18d1, productId: 0x4ee0 },
+                {
+                    classCode: FASTBOOT_USB_CLASS,
+                    subclassCode: FASTBOOT_USB_SUBCLASS,
+                    protocolCode: FASTBOOT_USB_PROTOCOL,
+                },
             ],
         });
         common.logDebug("Got USB device:", this.device);
@@ -78,12 +82,6 @@ export class FastbootDevice {
         let ife = this.device.configurations[0].interfaces[0].alternates[0];
         if (ife.endpoints.length != 2) {
             throw new UsbError("Interface has wrong number of endpoints");
-        }
-
-        if (ife.interfaceClass != FASTBOOT_USB_CLASS ||
-                ife.interfaceSubclass != FASTBOOT_USB_SUBCLASS ||
-                ife.interfaceProtocol != FASTBOOT_USB_PROTOCOL) {
-            throw new UsbError("Interface has wrong class, subclass, or protocol");
         }
 
         let epIn = null;
