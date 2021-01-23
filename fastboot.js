@@ -162,7 +162,7 @@ export class FastbootDevice {
      * @returns {response} Object containing response text and data size, if any.
      * @throws {FastbootError}
      */
-    async sendCommand(command) {
+    async runCommand(command) {
         // Command and response length is always 64 bytes regardless of protocol
         if (command.length > 64) {
             throw new RangeError();
@@ -184,7 +184,7 @@ export class FastbootDevice {
      * @throws {FastbootError}
      */
     async getVariable(varName) {
-        let resp = (await this.sendCommand(`getvar:${varName}`)).text;
+        let resp = (await this.runCommand(`getvar:${varName}`)).text;
         // Some bootloaders send whitespace around some variables
         resp = resp.trim();
         // According to the spec, non-existent variables should return empty
@@ -258,7 +258,7 @@ export class FastbootDevice {
         }
 
         // Check with the device and make sure size matches
-        let downloadResp = await this.sendCommand(`download:${xferHex}`);
+        let downloadResp = await this.runCommand(`download:${xferHex}`);
         if (downloadResp.dataSize == null) {
             throw new FastbootError("FAIL", `Unexpected response to download command: ${downloadResp.text}`);
         }
@@ -274,7 +274,7 @@ export class FastbootDevice {
         await this._readResponse();
 
         common.logDebug("Flashing payload...");
-        await this.sendCommand(`flash:${partition}`);
+        await this.runCommand(`flash:${partition}`);
     }
 
     /**

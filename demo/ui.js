@@ -27,7 +27,7 @@ export async function sendFormCommand(event) {
 
     let inputField = document.querySelector(".command-input");
     let command = inputField.value;
-    let result = (await device.sendCommand(command)).text;
+    let result = (await device.runCommand(command)).text;
     document.querySelector(".result-field").textContent = result;
     inputField.value = "";
 }
