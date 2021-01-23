@@ -56,6 +56,10 @@ export class FastbootDevice {
         this.device = null;
     }
 
+    get isConnected() {
+        return this.device != null;
+    }
+
     /**
      * Request the user to select a USB device and attempt to connect to it
      * using the fastboot protocol.
