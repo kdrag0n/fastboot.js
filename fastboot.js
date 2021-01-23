@@ -99,8 +99,11 @@ export class FastbootDevice {
         common.logDebug("Endpoints: in =", epIn, ", out =", epOut);
 
         await this.device.open();
-        // TODO: find out if this is actually necessary on Linux
-        await this.device.reset();
+        // Opportunistically reset to fix issues on some platforms
+        try {
+            await this.device.reset();
+        } catch (error) { /* Failed = doesn't support reset */ }
+
         await this.device.selectConfiguration(1);
         await this.device.claimInterface(0); // fastboot
     }
