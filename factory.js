@@ -22,7 +22,7 @@ class BlobStore {
                 reject(event);
             };
 
-            if (onUpgrade != null) {
+            if (onUpgrade !== null) {
                 request.onupgradeneeded = onUpgrade;
             }
         });

@@ -47,7 +47,7 @@ export class FastbootDevice {
     }
 
     get isConnected() {
-        return this.device != null;
+        return this.device !== null;
     }
 
     /**
@@ -70,7 +70,7 @@ export class FastbootDevice {
 
         // Validate device
         let ife = this.device.configurations[0].interfaces[0].alternates[0];
-        if (ife.endpoints.length != 2) {
+        if (ife.endpoints.length !== 2) {
             throw new UsbError("Interface has wrong number of endpoints");
         }
 
@@ -78,7 +78,7 @@ export class FastbootDevice {
         let epOut = null;
         for (let endpoint of ife.endpoints) {
             common.logDebug("Checking endpoint:", endpoint);
-            if (endpoint.type != "bulk") {
+            if (endpoint.type !== "bulk") {
                 throw new UsbError("Interface endpoint is not bulk");
             }
 
@@ -244,7 +244,7 @@ export class FastbootDevice {
 
         // Bootloader requires an 8-digit hex number
         let xferHex = buffer.byteLength.toString(16).padStart(8, "0");
-        if (xferHex.length != 8) {
+        if (xferHex.length !== 8) {
             throw new FastbootError("FAIL", `Transfer size overflow: ${xferHex} is more than 8 digits`);
         }
 
@@ -254,7 +254,7 @@ export class FastbootDevice {
             throw new FastbootError("FAIL", `Unexpected response to download command: ${downloadResp.text}`);
         }
         let downloadSize = parseInt(downloadResp.dataSize, 16);
-        if (downloadSize != buffer.byteLength) {
+        if (downloadSize !== buffer.byteLength) {
             throw new FastbootError("FAIL", `Bootloader wants ${buffer.byteLength} bytes, requested to send ${buffer.bytelength} bytes`);
         }
 

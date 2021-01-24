@@ -32,25 +32,25 @@ function parseFileHeader(buffer) {
     let view = new DataView(buffer);
 
     let magic = view.getUint32(0, true);
-    if (magic != FILE_MAGIC) {
+    if (magic !== FILE_MAGIC) {
         return null;
     }
 
     // v1.0+
     let major = view.getUint16(4, true);
     let minor = view.getUint16(6, true);
-    if (major != MAJOR_VERSION || minor < MINOR_VERSION) {
+    if (major !== MAJOR_VERSION || minor < MINOR_VERSION) {
         throw new ImageError(`Unsupported sparse image version ${major}.${minor}`);
     }
 
     let fileHdrSize = view.getUint16(8, true);
     let chunkHdrSize = view.getUint16(10, true);
-    if (fileHdrSize != FILE_HEADER_SIZE || chunkHdrSize != CHUNK_HEADER_SIZE) {
+    if (fileHdrSize !== FILE_HEADER_SIZE || chunkHdrSize !== CHUNK_HEADER_SIZE) {
         throw new ImageError(`Invalid file header size ${fileHdrSize}, chunk header size ${chunkHdrSize}`);
     }
 
     let blockSize = view.getUint32(12, true);
-    if (blockSize % 4 != 0) {
+    if (blockSize % 4 !== 0) {
         throw new ImageError(`Block size ${blockSize} is not a multiple of 4`);
     }
 
@@ -152,7 +152,7 @@ function createImage(header, chunks) {
 export function isSparse(buffer) {
     try {
         let header = parseFileHeader(buffer);
-        return header != null;
+        return header !== null;
     } catch (error) {
         // ImageError = invalid
         return false;
@@ -254,7 +254,7 @@ export async function* splitBlob(blob, splitSize) {
 
     // Finish the final split if necessary
     if (splitChunks.length > 0 &&
-            (splitChunks.length > 1 || splitChunks[0].type != "skip")) {
+            (splitChunks.length > 1 || splitChunks[0].type !== "skip")) {
         let splitImage = createImage(header, splitChunks);
         common.logDebug(`Finishing final ${splitImage.byteLength}-byte split with ${splitChunks.length} chunks`);
         yield splitImage;
