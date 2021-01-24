@@ -3006,4 +3006,4 @@ var factory = /*#__PURE__*/Object.freeze({
     configureZip: configure
 });
 
-export { factory as Factory, FastbootDevice };
+export { factory as FactoryImages, FastbootDevice };

@@ -3010,5 +3010,5 @@ var factory = /*#__PURE__*/Object.freeze({
     configureZip: configure
 });
 
-exports.Factory = factory;
+exports.FactoryImages = factory;
 exports.FastbootDevice = FastbootDevice;
