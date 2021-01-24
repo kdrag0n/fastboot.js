@@ -5,7 +5,7 @@ import * as Factory from "../factory.js";
 
 let device = new FastbootDevice();
 
-export async function connectDevice() {
+async function connectDevice() {
     let statusField = document.querySelector(".status-field");
     statusField.textContent = "Connecting...";
 
@@ -22,7 +22,7 @@ export async function connectDevice() {
     statusField.textContent = status;
 }
 
-export async function sendFormCommand(event) {
+async function sendFormCommand(event) {
     event.preventDefault();
 
     let inputField = document.querySelector(".command-input");
@@ -32,7 +32,7 @@ export async function sendFormCommand(event) {
     inputField.value = "";
 }
 
-export async function flashFormFile(event) {
+async function flashFormFile(event) {
     event.preventDefault();
 
     let fileField = document.querySelector(".flash-file");
@@ -43,7 +43,7 @@ export async function flashFormFile(event) {
     partField.value = "";
 }
 
-export async function downloadZip() {
+async function downloadZip() {
     let statusField = document.querySelector(".factory-status-field");
     statusField.textContent = "Downloading...";
 
@@ -57,7 +57,7 @@ export async function downloadZip() {
     statusField.textContent = "Downloaded";
 }
 
-export async function flashZip() {
+async function flashZip() {
     let statusField = document.querySelector(".factory-status-field");
     statusField.textContent = "Flashing...";
 
@@ -70,5 +70,15 @@ export async function flashZip() {
 
     statusField.textContent = "Successfully flashed taimen-factory-2021.01.06.14.zip";
 }
+
+zip.configure({
+    workerScriptsPath: "../libs/",
+});
+
+document.querySelector(".command-form").addEventListener("submit", sendFormCommand);
+document.querySelector(".connect-button").addEventListener("click", connectDevice);
+document.querySelector(".flash-form").addEventListener("submit", flashFormFile);
+document.querySelector(".download-zip-button").addEventListener("click", downloadZip);
+document.querySelector(".flash-zip-button").addEventListener("click", flashZip);
 
 // @license-end
