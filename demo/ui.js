@@ -71,6 +71,19 @@ async function flashZip() {
     statusField.textContent = "Successfully flashed taimen-factory-2021.01.06.14.zip";
 }
 
+// Validate script URLs for trusted types CSP
+if ("trustedTypes" in window) {
+    window.trustedTypes.createPolicy("default", {
+        createScriptURL: url => {
+            if (url !== "../libs/z-worker.js") {
+                throw new Error(`Blocked script URL: ${url}`);
+            }
+
+            return url;
+        },
+    });
+}
+
 zip.configure({
     workerScriptsPath: "../libs/",
 });
