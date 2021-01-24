@@ -1,7 +1,6 @@
 // @license magnet:?xt=urn:btih:d3d9a9a6595521f9666a5e94cc830dab83b65699&dn=expat.txt MIT
 
-import { FastbootDevice } from "../fastboot.js";
-import * as Factory from "../factory.js";
+import { FastbootDevice, Factory } from "../dist/fastboot.min.mjs";
 
 let device = new FastbootDevice();
 
@@ -71,9 +70,9 @@ async function flashZip() {
     statusField.textContent = "Successfully flashed taimen-factory-2021.01.06.14.zip";
 }
 
-zip.configure({
+Factory.configureZip({
     workerScripts: {
-        inflate: ["../libs/z-worker-pako.js", "pako_inflate.min.js"],
+        inflate: ["../dist/libs/z-worker-pako.js", "pako_inflate.min.js"],
     },
 });
 

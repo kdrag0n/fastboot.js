@@ -1,11 +1,12 @@
 import { terser } from "rollup-plugin-terser";
+import { nodeResolve } from "@rollup/plugin-node-resolve";
 
 export default {
     input: "lib/index.js",
     output: [
         {
             file: "dist/fastboot.cjs",
-            format: "cjs"
+            format: "cjs",
         },
         {
             file: "dist/fastboot.mjs",
@@ -25,5 +26,8 @@ export default {
                 terser(),
             ],
         },
+    ],
+    plugins: [
+        nodeResolve(),
     ],
 };

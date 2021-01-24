@@ -10,6 +10,7 @@
     "@zip.js/zip.js": "^2.1.0"
   },
   "devDependencies": {
+    "@rollup/plugin-node-resolve": "^11.1.0",
     "rollup": "^2.38.0",
     "rollup-plugin-terser": "^7.0.2"
   }
