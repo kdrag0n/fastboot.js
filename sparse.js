@@ -109,7 +109,7 @@ function createImage(header, chunks) {
     dataView.setUint32(16, header.blocks, true);
     dataView.setUint32(20, chunks.length, true);
 
-    // We don"t care about the CRC. AOSP docs specify that this should be a CRC32,
+    // We don't care about the CRC. AOSP docs specify that this should be a CRC32,
     // but AOSP libsparse always sets 0 and puts the CRC in a final undocumented
     // 0xCAC4 chunk instead.
     dataView.setUint32(24, 0, true);
@@ -124,8 +124,8 @@ function createImage(header, chunks) {
         } else if (chunk.type == "skip") {
             typeMagic = CHUNK_TYPE_SKIP;
         } else {
-            // We don"t support the undocumented 0xCAC4 CRC32 chunk type because
-            // it"s unnecessary and very rarely used in practice.
+            // We don't support the undocumented 0xCAC4 CRC32 chunk type because
+            // it's unnecessary and very rarely used in practice.
             throw new ImageError(`Invalid chunk type "${chunk.type}"`);
         }
 
