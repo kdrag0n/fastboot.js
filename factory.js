@@ -2,6 +2,7 @@
 
 import * as common from "./common.js";
 
+const DB_NAME = "BlobStore";
 const DB_VERSION = 1;
 
 class BlobStore {
@@ -28,7 +29,7 @@ class BlobStore {
     }
 
     async init() {
-        this.db = await this._wrapReq(indexedDB.open(this.constructor.name, DB_VERSION), (event) => {
+        this.db = await this._wrapReq(indexedDB.open(DB_NAME, DB_VERSION), (event) => {
             let db = event.target.result;
             db.createObjectStore("files", { keyPath: "name" });
             /* no index needed for such a small database */
