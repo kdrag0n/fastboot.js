@@ -44,7 +44,7 @@ CHUNK_TYPE_MAP.set(CHUNK_TYPE_SKIP, "skip");
 class ImageError extends Error {
     constructor(message) {
         super(message);
-        this.name = this.constructor.name;
+        this.name = "ImageError";
     }
 }
 
@@ -296,7 +296,7 @@ const MAX_DOWNLOAD_SIZE = 1024 * 1024 * 1024; // 1 GiB
 class UsbError extends Error {
     constructor(message) {
         super(message);
-        this.name = this.constructor.name;
+        this.name = "UsbError";
     }
 }
 
@@ -306,7 +306,7 @@ class FastbootError extends Error {
         super(`Bootloader replied with ${status}: ${message}`);
         this.status = status;
         this.bootloaderMessage = message;
-        this.name = this.constructor.name;
+        this.name = "FastbootError";
     }
 }
 
