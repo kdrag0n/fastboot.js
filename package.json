@@ -5,5 +5,12 @@
   "main": "index.js",
   "repository": "https://github.com/kdrag0n/fastboot.js",
   "author": "Danny Lin <danny@kdrag0n.dev>",
-  "license": "MIT"
+  "license": "MIT",
+  "dependencies": {
+    "@zip.js/zip.js": "^2.1.0"
+  },
+  "devDependencies": {
+    "rollup": "^2.38.0",
+    "rollup-plugin-terser": "^7.0.2"
+  }
 }
