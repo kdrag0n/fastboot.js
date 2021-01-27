@@ -1,6 +1,6 @@
 {
     "name": "fastboot",
-    "version": "1.0.0",
+    "version": "0.1.0",
     "description": "JavaScript implementation of fastboot, using WebUSB",
     "main": "lib/index.js",
     "repository": "https://github.com/kdrag0n/fastboot.js",
