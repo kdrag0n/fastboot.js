@@ -50,7 +50,7 @@ async function downloadZip() {
         await FactoryImages.downloadZip("/releases/taimen-factory-2021.01.06.14.zip");
     } catch (error) {
         statusField.textContent = `Failed to download zip: ${error.message}`;
-        return;
+        throw error;
     }
 
     statusField.textContent = "Downloaded";
@@ -64,7 +64,7 @@ async function flashZip() {
         await FactoryImages.flashZip(device, "taimen-factory-2021.01.06.14.zip");
     } catch (error) {
         statusField.textContent = `Failed to flash zip: ${error.message}`;
-        return;
+        throw error;
     }
 
     statusField.textContent = "Successfully flashed taimen-factory-2021.01.06.14.zip";
