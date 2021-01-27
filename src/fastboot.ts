@@ -12,6 +12,11 @@ const DEFAULT_DOWNLOAD_SIZE = 512 * 1024 * 1024; // 512 MiB
 // max download size even if the bootloader can accept more data.
 const MAX_DOWNLOAD_SIZE = 1024 * 1024 * 1024; // 1 GiB
 
+interface Response {
+  text: string;
+  dataSize?: string;
+}
+
 /** Exception class for USB or WebUSB-level errors. */
 export class UsbError extends Error {
   constructor(message: string) {
@@ -30,16 +35,14 @@ export class FastbootError extends Error {
   }
 }
 
-interface ResponseData {
-  text: string;
-  dataSize: string;
-}
-
 /**
  * Implements fastboot commands and operations for a device connected over USB.
  */
 export class FastbootDevice {
   device?: USBDevice;
+  _connectResolve?: (value: void) => void;
+  _connectReject?: (reason?: unknown) => void;
+
   /**
    * Creates a new fastboot device object ready to connect to a USB device.
    * This does not actually connect to any devices.
@@ -47,8 +50,57 @@ export class FastbootDevice {
    * @see connect
    */
 
+  /**
+   * Returns whether the USB device is currently connected.
+   */
   get isConnected(): boolean {
     return !!this.device;
+  }
+
+  /**
+   * Validates the current USB device's details and connects to it.
+   *
+   * @private
+   */
+  async _validateAndConnectDevice(): Promise<void> {
+    try {
+      await this.device!.open();
+      // Opportunistically reset to fix issues on some platforms
+      try {
+        await this.device!.reset();
+      } catch (error) {
+        /* Failed = doesn't support reset */
+      }
+
+      await this.device!.selectConfiguration(1);
+      await this.device!.claimInterface(0); // fastboot
+    } catch (error) {
+      // Propagate exception from waitForConnect()
+      if (this._connectReject) {
+        this._connectReject(error);
+        this._connectResolve = undefined;
+        this._connectReject = undefined;
+      }
+      throw error;
+    }
+
+    // Return from waitForConnect()
+    if (this._connectResolve) {
+      this._connectResolve();
+      this._connectResolve = undefined;
+      this._connectReject = undefined;
+    }
+  }
+
+  /**
+   * Wait for the USB device to connect. This function returns at the next
+   * connection, regardless of whether the device is the same.
+   */
+  waitForConnect(): Promise<void> {
+    return new Promise((resolve, reject) => {
+      this._connectResolve = resolve;
+      this._connectReject = reject;
+    });
   }
 
   /**
@@ -58,16 +110,26 @@ export class FastbootDevice {
    * @throws {UsbError}
    */
   async connect(): Promise<void> {
-    this.device = await navigator.usb.requestDevice({
-      filters: [
-        {
-          classCode: FASTBOOT_USB_CLASS,
-          subclassCode: FASTBOOT_USB_SUBCLASS,
-          protocolCode: FASTBOOT_USB_PROTOCOL,
-        },
-      ],
-    });
-    common.logDebug('Got USB device:', this.device);
+    const devices = await navigator.usb.getDevices();
+    common.logDebug('Found paired USB devices:', devices);
+    if (devices.length === 1) {
+      this.device = devices[0];
+    } else {
+      // If multiple paired devices are connected, request the user to
+      // select a specific one to reduce ambiguity. This is also necessary
+      // if no devices are already paired, i.e. first use.
+      common.logDebug('Multiple paired devices are connected, requesting one');
+      this.device = await navigator.usb.requestDevice({
+        filters: [
+          {
+            classCode: FASTBOOT_USB_CLASS,
+            subclassCode: FASTBOOT_USB_SUBCLASS,
+            protocolCode: FASTBOOT_USB_PROTOCOL,
+          },
+        ],
+      });
+    }
+    common.logDebug('Using USB device:', this.device);
 
     // Validate device
     const ife = this.device.configurations[0].interfaces[0].alternates[0];
@@ -89,7 +151,7 @@ export class FastbootDevice {
         } else {
           throw new UsbError('Interface has multiple IN endpoints');
         }
-      } else if (endpoint.direction == 'out') {
+      } else if (endpoint.direction === 'out') {
         if (!epOut) {
           epOut = endpoint.endpointNumber;
         } else {
@@ -99,16 +161,20 @@ export class FastbootDevice {
     }
     common.logDebug('Endpoints: in =', epIn, ', out =', epOut);
 
-    await this.device.open();
-    // Opportunistically reset to fix issues on some platforms
-    try {
-      await this.device.reset();
-    } catch (error) {
-      /* Failed = doesn't support reset */
-    }
+    navigator.usb.addEventListener('disconnect', (event) => {
+      if (event.device === this.device) {
+        common.logDebug('USB device disconnected');
+        this.device = undefined;
+      }
+    });
 
-    await this.device.selectConfiguration(1);
-    await this.device.claimInterface(0); // fastboot
+    navigator.usb.addEventListener('connect', async (event) => {
+      common.logDebug('USB device connected');
+      this.device = event.device;
+      await this._validateAndConnectDevice();
+    });
+
+    await this._validateAndConnectDevice();
   }
 
   /**
@@ -118,8 +184,8 @@ export class FastbootDevice {
    * @returns {response} Object containing response text and data size, if any.
    * @throws {FastbootError}
    */
-  async _readResponse(): Promise<ResponseData> {
-    const returnData = <ResponseData>{
+  async _readResponse(): Promise<Response> {
+    const returnData = <Response>{
       text: '',
     };
     let response;
@@ -158,7 +224,7 @@ export class FastbootDevice {
    * @returns {response} Object containing response text and data size, if any.
    * @throws {FastbootError}
    */
-  async runCommand(command: string): Promise<ResponseData> {
+  async runCommand(command: string): Promise<Response> {
     // Command and response length is always 64 bytes regardless of protocol
     if (command.length > 64) {
       throw new RangeError();
@@ -179,18 +245,22 @@ export class FastbootDevice {
    * @returns {value} Textual content of the variable.
    * @throws {FastbootError}
    */
-  async getVariable(varName: string): Promise<string> {
-    let resp = (await this.runCommand(`getvar:${varName}`)).text;
-    // Some bootloaders send whitespace around some variables
-    resp = resp.trim();
+  async getVariable(varName: string): Promise<string | undefined> {
+    let resp;
+    try {
+      resp = (await this.runCommand(`getvar:${varName}`)).text;
+    } catch (error) {
+      // Some bootloaders return FAIL instead of empty responses, despite
+      // what the spec says. Normalize it here.
+      if (error instanceof FastbootError && error.status == 'FAIL') {
+        resp = undefined;
+      }
+    }
+
+    // Some bootloaders send whitespace around some variables.
     // According to the spec, non-existent variables should return empty
     // responses
-    if (resp) {
-      return resp;
-    } else {
-      // Throw an error for compatibility reasons
-      throw new FastbootError('FAIL', 'No such variable (OKAY)');
-    }
+    return resp ? resp.trim() : undefined;
   }
 
   /**
@@ -202,10 +272,10 @@ export class FastbootDevice {
    */
   async _getDownloadSize(): Promise<number> {
     try {
-      const resp = (await this.getVariable('max-download-size')).toLowerCase();
+      const resp = await this.getVariable('max-download-size');
       if (resp) {
         // AOSP fastboot requires hex
-        return Math.min(parseInt(resp, 16), MAX_DOWNLOAD_SIZE);
+        return Math.min(parseInt(resp.toLowerCase(), 16), MAX_DOWNLOAD_SIZE);
       }
     } catch (error) {
       /* Failed = no value, fallthrough */
@@ -219,7 +289,6 @@ export class FastbootDevice {
    * Reads a raw command response from the bootloader.
    *
    * @private
-   * @todo Nothing is currently returned
    * @returns {response} Object containing response text and data size, if any.
    * @throws {FastbootError}
    */
@@ -231,7 +300,7 @@ export class FastbootDevice {
         i * BULK_TRANSFER_SIZE,
         (i + 1) * BULK_TRANSFER_SIZE,
       );
-      if (i % 1000 == 0) {
+      if (i % 1000 === 0) {
         common.logDebug(
           `  Sending ${chunk.byteLength} bytes to endpoint, ${remainingBytes} remaining, i=${i}`,
         );
@@ -248,18 +317,16 @@ export class FastbootDevice {
   }
 
   /**
-   * Flashes a single sparse payload.
-   * Does not handle raw images or splitting.
+   * Uploads a payload to the bootloader for further use.
+   * Does not handle raw images, flashing, or splitting.
    *
-   * @private
+   * @param {string} partition - Name of the partition the payload is intended for.
+   * @param {ArrayBuffer} buffer - Buffer containing the data to upload.
    * @throws {FastbootError}
    */
-  async _flashSingleSparse(
-    partition: string,
-    buffer: ArrayBufferLike,
-  ): Promise<void> {
+  async upload(partition: string, buffer: ArrayBufferLike): Promise<void> {
     common.logDebug(
-      `Flashing single sparse to ${partition}: ${buffer.byteLength} bytes`,
+      `Uploading single sparse to ${partition}: ${buffer.byteLength} bytes`,
     );
 
     // Bootloader requires an 8-digit hex number
@@ -292,9 +359,25 @@ export class FastbootDevice {
 
     common.logDebug('Payload sent, waiting for response...');
     await this._readResponse();
+  }
 
-    common.logDebug('Flashing payload...');
-    await this.runCommand(`flash:${partition}`);
+  /**
+   * Reboots to the given target and waits for the device to reconnect, unless
+   * otherwise specified.
+   *
+   * @param {string} target - Where to reboot to, i.e. fastboot or bootloader.
+   * @param {boolean} wait - Whether to wait for the device to reconnect.
+   */
+  async reboot(target = '', wait = false): Promise<void> {
+    if (target.length > 0) {
+      await this.runCommand(`reboot-${target}`);
+    } else {
+      await this.runCommand('reboot');
+    }
+
+    if (wait) {
+      await this.waitForConnect();
+    }
   }
 
   /**
@@ -306,20 +389,32 @@ export class FastbootDevice {
    */
   async flashBlob(partition: string, blob: Blob): Promise<void> {
     // Use current slot if partition is A/B
-    try {
-      if ((await this.getVariable(`has-slot:${partition}`)) === 'yes') {
-        partition += '_' + (await this.getVariable('current-slot'));
-      }
-    } catch (error) {
-      /* Failed = not A/B, fallthrough */
+    if ((await this.getVariable(`has-slot:${partition}`)) === 'yes') {
+      partition += `_${(await this.getVariable('current-slot'))!}`;
     }
 
     const maxDlSize = await this._getDownloadSize();
 
-    // Convert image to sparse (for splitting) if it exceeds the size limit
+    // Logical partitions need to be resized before flashing, since they're
+    // sized perfectly to the payload.
     const fileHeader = await common.readBlobAsBuffer(
       blob.slice(0, Sparse.FILE_HEADER_SIZE),
     );
+    if ((await this.getVariable(`is-logical:${partition}`)) === 'yes') {
+      let totalBytes = 0;
+      if (Sparse.isSparse(fileHeader)) {
+        const sparseHeader = Sparse.parseFileHeader(fileHeader)!; // Possibly undefined
+        totalBytes = sparseHeader.blocks * sparseHeader.blockSize;
+      } else {
+        totalBytes = blob.size;
+      }
+
+      await this.runCommand(
+        `resize-logical-partition:${partition}:${totalBytes}`,
+      );
+    }
+
+    // Convert image to sparse (for splitting) if it exceeds the size limit
     if (blob.size > maxDlSize && !Sparse.isSparse(fileHeader)) {
       common.logDebug(`${partition} image is raw, converting to sparse`);
 
@@ -335,8 +430,11 @@ export class FastbootDevice {
     );
     let splits = 0;
     for await (const splitBuffer of Sparse.splitBlob(blob, maxDlSize)) {
-      // Removed maxDlSize as it doesn't exist on the method signature
-      await this._flashSingleSparse(partition, splitBuffer);
+      await this.upload(partition, splitBuffer);
+
+      common.logDebug('Flashing payload...');
+      await this.runCommand(`flash:${partition}`);
+
       splits += 1;
     }
 

@@ -1,4 +1,4 @@
-import * as common from './common.js';
+import * as common from './common';
 
 const FILE_MAGIC = 0xed26ff3a;
 
@@ -33,7 +33,7 @@ interface Header {
   crc32: number;
 }
 
-function parseFileHeader(buffer: ArrayBufferLike): Header | undefined {
+export function parseFileHeader(buffer: ArrayBufferLike): Header | undefined {
   const view = new DataView(buffer);
 
   const magic = view.getUint32(0, true);
@@ -62,7 +62,7 @@ function parseFileHeader(buffer: ArrayBufferLike): Header | undefined {
   }
 
   return {
-    blockSize,
+    blockSize: blockSize,
     blocks: view.getUint32(16, true),
     chunks: view.getUint32(20, true),
     crc32: view.getUint32(24, true),
@@ -93,7 +93,7 @@ function calcChunksBlockSize(chunks: Chunk[]) {
   return chunks.map((chunk) => chunk.blocks).reduce((total, c) => total + c, 0);
 }
 
-function calcChunksDataSize(chunks: Chunk[]): number {
+function calcChunksDataSize(chunks: Chunk[]) {
   return chunks
     .map((chunk) => chunk.data!.byteLength)
     .reduce((total, c) => total + c, 0);
@@ -168,8 +168,7 @@ function createImage(header: Header, chunks: Chunk[]) {
  */
 export function isSparse(buffer: ArrayBufferLike): boolean {
   try {
-    const header = parseFileHeader(buffer);
-    return !!header;
+    return !!parseFileHeader(buffer);
   } catch (error) {
     // ImageError = invalid
     return false;
@@ -212,10 +211,7 @@ export function fromRaw(rawBuffer: ArrayBufferLike): ArrayBuffer {
  * @param {Blob} blob - Blob containing the sparse image to split.
  * @param {number} splitSize - Maximum size per split.
  */
-export async function* splitBlob(
-  blob: Blob,
-  splitSize: number,
-): AsyncGenerator<ArrayBuffer> {
+export async function* splitBlob(blob: Blob, splitSize: number): AsyncGenerator<ArrayBuffer> {
   common.logDebug(
     `Splitting ${blob.size}-byte sparse image into ${splitSize}-byte chunks`,
   );
@@ -229,8 +225,7 @@ export async function* splitBlob(
   const headerData = await common.readBlobAsBuffer(
     blob.slice(0, FILE_HEADER_SIZE),
   );
-  // This could be undefined, asserting that it isn't for now
-  const header = parseFileHeader(headerData)!;
+  const header = parseFileHeader(headerData)!; // May be undefined
   // Remove CRC32 (if present), otherwise splitting will invalidate it
   header.crc32 = 0;
   blob = blob.slice(FILE_HEADER_SIZE);
@@ -248,9 +243,7 @@ export async function* splitBlob(
 
     const bytesRemaining = splitSize - calcChunksSize(splitChunks);
     common.logDebug(
-      `  Chunk ${i}: type ${chunk.type}, ${chunk.dataBytes!} bytes / ${
-        chunk.blocks
-      } blocks, ${bytesRemaining} bytes remaining`,
+      `  Chunk ${i}: type ${chunk.type}, ${chunk.dataBytes!} bytes / ${chunk.blocks} blocks, ${bytesRemaining} bytes remaining`,
     );
     if (bytesRemaining >= chunk.dataBytes!) {
       // Read the chunk and add it
