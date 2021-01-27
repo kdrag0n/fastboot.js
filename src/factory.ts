@@ -1,3 +1,4 @@
+/* eslint-disable */
 /// @ts-nocheck
 
 import { BlobReader, BlobWriter, ZipReader } from '@zip.js/zip.js';
@@ -35,7 +36,7 @@ class BlobStore {
     this.db = await this._wrapReq(
       indexedDB.open(DB_NAME, DB_VERSION),
       (event) => {
-        let db = event.target.result;
+        const db = event.target.result;
         db.createObjectStore('files', { keyPath: 'name' });
         /* no index needed for such a small database */
       },
@@ -51,7 +52,7 @@ class BlobStore {
 
   async loadFile(name) {
     try {
-      let obj = await this._wrapReq(
+      const obj = await this._wrapReq(
         this.db.transaction('files').objectStore('files').get(name),
       );
       return obj.blob;
@@ -67,14 +68,14 @@ class BlobStore {
 
 export async function downloadZip(url) {
   // Open the DB first to get user consent
-  let store = new BlobStore();
+  const store = new BlobStore();
   await store.init();
 
-  let filename = url.split('/').pop();
+  const filename = url.split('/').pop();
   let blob = await store.loadFile(filename);
   if (blob == null) {
     common.logDebug(`Downloading ${url}`);
-    let resp = await fetch(new Request(url));
+    const resp = await fetch(new Request(url));
     blob = await resp.blob();
     common.logDebug('File downloaded, saving...');
     await store.saveFile(filename, blob);
@@ -89,19 +90,19 @@ export async function downloadZip(url) {
 
 async function flashEntryBlob(device, entry, progressCallback, partition) {
   progressCallback('unpack', partition);
-  let blob = await entry.getData(new BlobWriter('application/octet-stream'));
+  const blob = await entry.getData(new BlobWriter('application/octet-stream'));
   progressCallback('flash', partition);
   await device.flashBlob(partition, blob);
 }
 
 export async function flashZip(device, name, progressCallback = () => {}) {
-  let store = new BlobStore();
+  const store = new BlobStore();
   await store.init();
 
   common.logDebug(`Loading ${name} as zip`);
-  let reader = new ZipReader(new BlobReader(await store.loadFile(name)));
-  let entries = await reader.getEntries();
-  for (let entry of entries) {
+  const reader = new ZipReader(new BlobReader(await store.loadFile(name)));
+  const entries = await reader.getEntries();
+  for (const entry of entries) {
     if (entry.filename.match(/avb_pkmd.bin$/)) {
       common.logDebug('Flashing AVB custom key');
       await flashEntryBlob(device, entry, progressCallback, 'avb_custom_key');
@@ -114,15 +115,15 @@ export async function flashZip(device, name, progressCallback = () => {}) {
     } else if (entry.filename.match(/image-.+\.zip$/)) {
       common.logDebug('Flashing images from nested images zip');
 
-      let imagesBlob = await entry.getData(new BlobWriter('application/zip'));
-      let imageReader = new ZipReader(new BlobReader(imagesBlob));
-      for (let image of await imageReader.getEntries()) {
+      const imagesBlob = await entry.getData(new BlobWriter('application/zip'));
+      const imageReader = new ZipReader(new BlobReader(imagesBlob));
+      for (const image of await imageReader.getEntries()) {
         if (!image.filename.endsWith('.img')) {
           continue;
         }
 
         common.logDebug(`Flashing ${image.filename} from images zip`);
-        let partition = image.filename.replace('.img', '');
+        const partition = image.filename.replace('.img', '');
         await flashEntryBlob(device, image, progressCallback, partition);
       }
     }

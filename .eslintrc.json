@@ -1,0 +1,17 @@
+{
+    "parser": "@typescript-eslint/parser",
+    "parserOptions": {
+        "project": "tsconfig.json"
+    },
+    "extends": [
+        "eslint:recommended",
+        "plugin:@typescript-eslint/recommended",
+        "plugin:@typescript-eslint/recommended-requiring-type-checking",
+        "prettier",
+        "prettier/@typescript-eslint"
+    ],
+    "rules": {
+        "@typescript-eslint/no-non-null-assertion": "off"
+    },
+    "ignorePatterns": ["lib/**/*", "dist/**/*"]
+}
