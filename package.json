@@ -2,7 +2,14 @@
   "name": "fastboot",
   "version": "1.0.0",
   "description": "JavaScript implementation of fastboot, using WebUSB",
-  "main": "lib/index.js",
+  "main": "dist/index.js",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc --declaration true --outDir dist",
+    "bundle": "rollup -c"
+  },
   "repository": "https://github.com/kdrag0n/fastboot.js",
   "author": "Danny Lin <danny@kdrag0n.dev>",
   "license": "MIT",
@@ -11,7 +18,11 @@
   },
   "devDependencies": {
     "@rollup/plugin-node-resolve": "^11.1.0",
+    "@rollup/plugin-typescript": "^8.1.0",
+    "@types/w3c-web-usb": "^1.0.4",
     "rollup": "^2.38.0",
-    "rollup-plugin-terser": "^7.0.2"
+    "rollup-plugin-terser": "^7.0.2",
+    "tslib": "^2.1.0",
+    "typescript": "^4.1.3"
   }
 }
