@@ -1,10 +1,13 @@
 // @license magnet:?xt=urn:btih:d3d9a9a6595521f9666a5e94cc830dab83b65699&dn=expat.txt MIT
 
-import { FastbootDevice, FactoryImages } from "../dist/fastboot.mjs";
+import * as fastboot from "../dist/fastboot.mjs";
 import { BlobStore } from "./download.js";
 
-let device = new FastbootDevice();
+let device = new fastboot.FastbootDevice();
 let blobStore = new BlobStore();
+
+// Enable debug logging
+fastboot.setDebugMode(true);
 
 async function connectDevice() {
     let statusField = document.querySelector(".status-field");
@@ -66,7 +69,7 @@ async function flashZip() {
     await blobStore.init();
     try {
         let blob = await blobStore.loadFile("taimen-factory-2021.01.06.14.zip");
-        await FactoryImages.flashZip(device, blob);
+        await fastboot.FactoryImages.flashZip(device, blob);
     } catch (error) {
         statusField.textContent = `Failed to flash zip: ${error.message}`;
         throw error;
@@ -76,7 +79,7 @@ async function flashZip() {
         "Successfully flashed taimen-factory-2021.01.06.14.zip";
 }
 
-FactoryImages.configureZip({
+fastboot.FactoryImages.configureZip({
     workerScripts: {
         inflate: ["../dist/libs/z-worker-pako.js", "pako_inflate.min.js"],
     },
