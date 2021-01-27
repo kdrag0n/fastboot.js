@@ -60,13 +60,20 @@ function parseFileHeader(buffer) {
     let major = view.getUint16(4, true);
     let minor = view.getUint16(6, true);
     if (major !== MAJOR_VERSION || minor < MINOR_VERSION) {
-        throw new ImageError(`Unsupported sparse image version ${major}.${minor}`);
+        throw new ImageError(
+            `Unsupported sparse image version ${major}.${minor}`
+        );
     }
 
     let fileHdrSize = view.getUint16(8, true);
     let chunkHdrSize = view.getUint16(10, true);
-    if (fileHdrSize !== FILE_HEADER_SIZE || chunkHdrSize !== CHUNK_HEADER_SIZE) {
-        throw new ImageError(`Invalid file header size ${fileHdrSize}, chunk header size ${chunkHdrSize}`);
+    if (
+        fileHdrSize !== FILE_HEADER_SIZE ||
+        chunkHdrSize !== CHUNK_HEADER_SIZE
+    ) {
+        throw new ImageError(
+            `Invalid file header size ${fileHdrSize}, chunk header size ${chunkHdrSize}`
+        );
     }
 
     let blockSize = view.getUint32(12, true);
@@ -97,12 +104,14 @@ function parseChunkHeader(buffer) {
 }
 
 function calcChunksBlockSize(chunks) {
-    return chunks.map(chunk => chunk.blocks)
+    return chunks
+        .map((chunk) => chunk.blocks)
         .reduce((total, c) => total + c, 0);
 }
 
 function calcChunksDataSize(chunks) {
-    return chunks.map(chunk => chunk.data.byteLength)
+    return chunks
+        .map((chunk) => chunk.data.byteLength)
         .reduce((total, c) => total + c, 0);
 }
 
@@ -137,11 +146,11 @@ function createImage(header, chunks) {
     let chunkOff = FILE_HEADER_SIZE;
     for (let chunk of chunks) {
         let typeMagic;
-        if (chunk.type == "raw") {
+        if (chunk.type === "raw") {
             typeMagic = CHUNK_TYPE_RAW;
-        } else if (chunk.type == "fill") {
+        } else if (chunk.type === "fill") {
             typeMagic = CHUNK_TYPE_FILL;
-        } else if (chunk.type == "skip") {
+        } else if (chunk.type === "skip") {
             typeMagic = CHUNK_TYPE_SKIP;
         } else {
             // We don't support the undocumented 0xCAC4 CRC32 chunk type because
@@ -152,7 +161,11 @@ function createImage(header, chunks) {
         dataView.setUint16(chunkOff, typeMagic, true);
         dataView.setUint16(chunkOff + 2, 0, true); // reserved
         dataView.setUint32(chunkOff + 4, chunk.blocks, true);
-        dataView.setUint32(chunkOff + 8, CHUNK_HEADER_SIZE + chunk.data.byteLength, true);
+        dataView.setUint32(
+            chunkOff + 8,
+            CHUNK_HEADER_SIZE + chunk.data.byteLength,
+            true
+        );
         chunkOff += CHUNK_HEADER_SIZE;
 
         let chunkArrayView = new Uint8Array(chunk.data);
@@ -216,7 +229,9 @@ function fromRaw(rawBuffer) {
  * @param {number} splitSize - Maximum size per split.
  */
 async function* splitBlob(blob, splitSize) {
-    logDebug(`Splitting ${blob.size}-byte sparse image into ${splitSize}-byte chunks`);
+    logDebug(
+        `Splitting ${blob.size}-byte sparse image into ${splitSize}-byte chunks`
+    );
     // Short-circuit if splitting isn't required
     if (blob.size <= splitSize) {
         logDebug("Blob fits in 1 payload, not splitting");
@@ -224,7 +239,9 @@ async function* splitBlob(blob, splitSize) {
         return;
     }
 
-    let headerData = await readBlobAsBuffer(blob.slice(0, FILE_HEADER_SIZE));
+    let headerData = await readBlobAsBuffer(
+        blob.slice(0, FILE_HEADER_SIZE)
+    );
     let header = parseFileHeader(headerData);
     // Remove CRC32 (if present), otherwise splitting will invalidate it
     header.crc32 = 0;
@@ -232,13 +249,19 @@ async function* splitBlob(blob, splitSize) {
 
     let splitChunks = [];
     for (let i = 0; i < header.chunks; i++) {
-        let chunkHeaderData = await readBlobAsBuffer(blob.slice(0, CHUNK_HEADER_SIZE));
+        let chunkHeaderData = await readBlobAsBuffer(
+            blob.slice(0, CHUNK_HEADER_SIZE)
+        );
         let chunk = parseChunkHeader(chunkHeaderData);
-        chunk.data = await readBlobAsBuffer(blob.slice(CHUNK_HEADER_SIZE, CHUNK_HEADER_SIZE + chunk.dataBytes));
+        chunk.data = await readBlobAsBuffer(
+            blob.slice(CHUNK_HEADER_SIZE, CHUNK_HEADER_SIZE + chunk.dataBytes)
+        );
         blob = blob.slice(CHUNK_HEADER_SIZE + chunk.dataBytes);
 
         let bytesRemaining = splitSize - calcChunksSize(splitChunks);
-        logDebug(`  Chunk ${i}: type ${chunk.type}, ${chunk.dataBytes} bytes / ${chunk.blocks} blocks, ${bytesRemaining} bytes remaining`);
+        logDebug(
+            `  Chunk ${i}: type ${chunk.type}, ${chunk.dataBytes} bytes / ${chunk.blocks} blocks, ${bytesRemaining} bytes remaining`
+        );
         if (bytesRemaining >= chunk.dataBytes) {
             // Read the chunk and add it
             logDebug("    Space is available, adding chunk");
@@ -253,14 +276,26 @@ async function* splitBlob(blob, splitSize) {
                 blocks: header.blocks - splitBlocks,
                 data: new ArrayBuffer(),
             });
-            logDebug(`Partition is ${header.blocks} blocks, used ${splitBlocks}, padded with ${header.blocks - splitBlocks}, finishing split with ${calcChunksBlockSize(splitChunks)} blocks`);
+            logDebug(
+                `Partition is ${
+                    header.blocks
+                } blocks, used ${splitBlocks}, padded with ${
+                    header.blocks - splitBlocks
+                }, finishing split with ${calcChunksBlockSize(
+                    splitChunks
+                )} blocks`
+            );
             let splitImage = createImage(header, splitChunks);
-            logDebug(`Finished ${splitImage.byteLength}-byte split with ${splitChunks.length} chunks`);
+            logDebug(
+                `Finished ${splitImage.byteLength}-byte split with ${splitChunks.length} chunks`
+            );
             yield splitImage;
 
             // Start a new split. Every split is considered a full image by the
             // bootloader, so we need to skip the *total* written blocks.
-            logDebug(`Starting new split: skipping first ${splitBlocks} blocks and adding chunk`);
+            logDebug(
+                `Starting new split: skipping first ${splitBlocks} blocks and adding chunk`
+            );
             splitChunks = [
                 {
                     type: "skip",
@@ -273,10 +308,14 @@ async function* splitBlob(blob, splitSize) {
     }
 
     // Finish the final split if necessary
-    if (splitChunks.length > 0 &&
-            (splitChunks.length > 1 || splitChunks[0].type !== "skip")) {
+    if (
+        splitChunks.length > 0 &&
+        (splitChunks.length > 1 || splitChunks[0].type !== "skip")
+    ) {
         let splitImage = createImage(header, splitChunks);
-        logDebug(`Finishing final ${splitImage.byteLength}-byte split with ${splitChunks.length} chunks`);
+        logDebug(
+            `Finishing final ${splitImage.byteLength}-byte split with ${splitChunks.length} chunks`
+        );
         yield splitImage;
     }
 }
@@ -322,10 +361,61 @@ class FastbootDevice {
      */
     constructor() {
         this.device = null;
+        this._connectResolve = null;
+        this._connectReject = null;
     }
 
+    /**
+     * Returns whether the USB device is currently connected.
+     */
     get isConnected() {
         return this.device !== null;
+    }
+
+    /**
+     * Validates the current USB device's details and connects to it.
+     *
+     * @private
+     */
+    async _validateAndConnectDevice() {
+        try {
+            await this.device.open();
+            // Opportunistically reset to fix issues on some platforms
+            try {
+                await this.device.reset();
+            } catch (error) {
+                /* Failed = doesn't support reset */
+            }
+
+            await this.device.selectConfiguration(1);
+            await this.device.claimInterface(0); // fastboot
+        } catch (error) {
+            // Propagate exception from waitForConnect()
+            if (this._connectReject !== null) {
+                this._connectReject(error);
+                this._connectResolve = null;
+                this._connectReject = null;
+            }
+            throw error;
+        }
+
+        // Return from waitForConnect()
+        if (this._connectResolve !== null) {
+            this._connectResolve();
+            this._connectResolve = null;
+            this._connectReject = null;
+        }
+    }
+
+    /**
+     * Wait for the USB device to connect. This function returns at the next
+     * connection, regardless of whether the device is the same.
+     */
+    waitForConnect() {
+        return new Promise((resolve, reject) => {
+            this._connectResolve = resolve;
+            this._connectReject = reject;
+        });
     }
 
     /**
@@ -335,16 +425,28 @@ class FastbootDevice {
      * @throws {UsbError}
      */
     async connect() {
-        this.device = await navigator.usb.requestDevice({
-            filters: [
-                {
-                    classCode: FASTBOOT_USB_CLASS,
-                    subclassCode: FASTBOOT_USB_SUBCLASS,
-                    protocolCode: FASTBOOT_USB_PROTOCOL,
-                },
-            ],
-        });
-        logDebug("Got USB device:", this.device);
+        let devices = await navigator.usb.getDevices();
+        logDebug("Found paired USB devices:", devices);
+        if (devices.length === 1) {
+            this.device = devices[0];
+        } else {
+            // If multiple paired devices are connected, request the user to
+            // select a specific one to reduce ambiguity. This is also necessary
+            // if no devices are already paired, i.e. first use.
+            logDebug(
+                "Multiple paired devices are connected, requesting one"
+            );
+            this.device = await navigator.usb.requestDevice({
+                filters: [
+                    {
+                        classCode: FASTBOOT_USB_CLASS,
+                        subclassCode: FASTBOOT_USB_SUBCLASS,
+                        protocolCode: FASTBOOT_USB_PROTOCOL,
+                    },
+                ],
+            });
+        }
+        logDebug("Using USB device:", this.device);
 
         // Validate device
         let ife = this.device.configurations[0].interfaces[0].alternates[0];
@@ -360,14 +462,14 @@ class FastbootDevice {
                 throw new UsbError("Interface endpoint is not bulk");
             }
 
-            if (endpoint.direction == "in") {
-                if (epIn == null) {
+            if (endpoint.direction === "in") {
+                if (epIn === null) {
                     epIn = endpoint.endpointNumber;
                 } else {
                     throw new UsbError("Interface has multiple IN endpoints");
                 }
-            } else if (endpoint.direction == "out") {
-                if (epOut == null) {
+            } else if (endpoint.direction === "out") {
+                if (epOut === null) {
                     epOut = endpoint.endpointNumber;
                 } else {
                     throw new UsbError("Interface has multiple OUT endpoints");
@@ -376,14 +478,20 @@ class FastbootDevice {
         }
         logDebug("Endpoints: in =", epIn, ", out =", epOut);
 
-        await this.device.open();
-        // Opportunistically reset to fix issues on some platforms
-        try {
-            await this.device.reset();
-        } catch (error) { /* Failed = doesn't support reset */ }
+        navigator.usb.addEventListener("disconnect", (event) => {
+            if (event.device === this.device) {
+                logDebug("USB device disconnected");
+                this.device = null;
+            }
+        });
 
-        await this.device.selectConfiguration(1);
-        await this.device.claimInterface(0); // fastboot
+        navigator.usb.addEventListener("connect", async (event) => {
+            logDebug("USB device connected");
+            this.device = event.device;
+            await this._validateAndConnectDevice();
+        });
+
+        await this._validateAndConnectDevice();
     }
 
     /**
@@ -415,9 +523,12 @@ class FastbootDevice {
                 returnData.dataSize = response.substring(4);
             } else {
                 // Assume FAIL or garbage data
-                throw new FastbootError(response.substring(0, 4), response.substring(4));
+                throw new FastbootError(
+                    response.substring(0, 4),
+                    response.substring(4)
+                );
             }
-        // INFO means that more packets are coming
+            // INFO means that more packets are coming
         } while (response.startsWith("INFO"));
 
         return returnData;
@@ -453,17 +564,21 @@ class FastbootDevice {
      * @throws {FastbootError}
      */
     async getVariable(varName) {
-        let resp = (await this.runCommand(`getvar:${varName}`)).text;
-        // Some bootloaders send whitespace around some variables
-        resp = resp.trim();
+        let resp;
+        try {
+            resp = (await this.runCommand(`getvar:${varName}`)).text;
+        } catch (error) {
+            // Some bootloaders return FAIL instead of empty responses, despite
+            // what the spec says. Normalize it here.
+            if (error instanceof FastbootError && error.status == "FAIL") {
+                resp = undefined;
+            }
+        }
+
+        // Some bootloaders send whitespace around some variables.
         // According to the spec, non-existent variables should return empty
         // responses
-        if (resp) {
-            return resp;
-        } else {
-            // Throw an error for compatibility reasons
-            throw new FastbootError("FAIL", "No such variable (OKAY)");
-        }
+        return resp ? resp.trim() : undefined;
     }
 
     /**
@@ -475,12 +590,16 @@ class FastbootDevice {
      */
     async _getDownloadSize() {
         try {
-            let resp = (await this.getVariable("max-download-size")).toLowerCase();
+            let resp = (
+                await this.getVariable("max-download-size")
+            ).toLowerCase();
             if (resp) {
                 // AOSP fastboot requires hex
                 return Math.min(parseInt(resp, 16), MAX_DOWNLOAD_SIZE);
             }
-        } catch (error) { /* Failed = no value, fallthrough */ }
+        } catch (error) {
+            /* Failed = no value, fallthrough */
+        }
 
         // FAIL or empty variable means no max, set a reasonable limit to conserve memory
         return DEFAULT_DOWNLOAD_SIZE;
@@ -497,9 +616,14 @@ class FastbootDevice {
         let i = 0;
         let remainingBytes = buffer.byteLength;
         while (remainingBytes > 0) {
-            let chunk = buffer.slice(i * BULK_TRANSFER_SIZE, (i + 1) * BULK_TRANSFER_SIZE);
-            if (i % 1000 == 0) {
-                logDebug(`  Sending ${chunk.byteLength} bytes to endpoint, ${remainingBytes} remaining, i=${i}`);
+            let chunk = buffer.slice(
+                i * BULK_TRANSFER_SIZE,
+                (i + 1) * BULK_TRANSFER_SIZE
+            );
+            if (i % 1000 === 0) {
+                logDebug(
+                    `  Sending ${chunk.byteLength} bytes to endpoint, ${remainingBytes} remaining, i=${i}`
+                );
             }
             await this.device.transferOut(0x01, chunk);
 
@@ -507,33 +631,47 @@ class FastbootDevice {
             i += 1;
         }
 
-        logDebug(`Finished sending payload, ${remainingBytes} bytes remaining`);
+        logDebug(
+            `Finished sending payload, ${remainingBytes} bytes remaining`
+        );
     }
 
     /**
-     * Flashes a single sparse payload.
-     * Does not handle raw images or splitting.
+     * Uploads a payload to the bootloader for further use.
+     * Does not handle raw images, flashing, or splitting.
      *
-     * @private
+     * @param {string} partition - Name of the partition the payload is intended for.
+     * @param {ArrayBuffer} buffer - Buffer containing the data to upload.
      * @throws {FastbootError}
      */
-    async _flashSingleSparse(partition, buffer) {
-        logDebug(`Flashing single sparse to ${partition}: ${buffer.byteLength} bytes`);
+    async upload(partition, buffer) {
+        logDebug(
+            `Uploading single sparse to ${partition}: ${buffer.byteLength} bytes`
+        );
 
         // Bootloader requires an 8-digit hex number
         let xferHex = buffer.byteLength.toString(16).padStart(8, "0");
         if (xferHex.length !== 8) {
-            throw new FastbootError("FAIL", `Transfer size overflow: ${xferHex} is more than 8 digits`);
+            throw new FastbootError(
+                "FAIL",
+                `Transfer size overflow: ${xferHex} is more than 8 digits`
+            );
         }
 
         // Check with the device and make sure size matches
         let downloadResp = await this.runCommand(`download:${xferHex}`);
-        if (downloadResp.dataSize == null) {
-            throw new FastbootError("FAIL", `Unexpected response to download command: ${downloadResp.text}`);
+        if (downloadResp.dataSize === null) {
+            throw new FastbootError(
+                "FAIL",
+                `Unexpected response to download command: ${downloadResp.text}`
+            );
         }
         let downloadSize = parseInt(downloadResp.dataSize, 16);
         if (downloadSize !== buffer.byteLength) {
-            throw new FastbootError("FAIL", `Bootloader wants ${buffer.byteLength} bytes, requested to send ${buffer.bytelength} bytes`);
+            throw new FastbootError(
+                "FAIL",
+                `Bootloader wants ${buffer.byteLength} bytes, requested to send ${buffer.bytelength} bytes`
+            );
         }
 
         logDebug(`Sending payload: ${buffer.byteLength} bytes`);
@@ -541,9 +679,25 @@ class FastbootDevice {
 
         logDebug("Payload sent, waiting for response...");
         await this._readResponse();
+    }
 
-        logDebug("Flashing payload...");
-        await this.runCommand(`flash:${partition}`);
+    /**
+     * Reboots to the given target and waits for the device to reconnect, unless
+     * otherwise specified.
+     *
+     * @param {string} target - Where to reboot to, i.e. fastboot or bootloader.
+     * @param {boolean} wait - Whether to wait for the device to reconnect.
+     */
+    async reboot(target = "", wait = false) {
+        if (target.length > 0) {
+            await this.runCommand(`reboot-${target}`);
+        } else {
+            await this.runCommand("reboot");
+        }
+
+        if (wait) {
+            await this.waitForConnect();
+        }
     }
 
     /**
@@ -555,16 +709,32 @@ class FastbootDevice {
      */
     async flashBlob(partition, blob) {
         // Use current slot if partition is A/B
-        try {
-            if (await this.getVariable(`has-slot:${partition}`) == "yes") {
-                partition += "_" + await this.getVariable("current-slot");
-            }
-        } catch (error) { /* Failed = not A/B, fallthrough */ }
+        if ((await this.getVariable(`has-slot:${partition}`)) === "yes") {
+            partition += "_" + (await this.getVariable("current-slot"));
+        }
 
         let maxDlSize = await this._getDownloadSize();
 
+        // Logical partitions need to be resized before flashing, since they're
+        // sized perfectly to the payload.
+        let fileHeader = await readBlobAsBuffer(
+            blob.slice(0, FILE_HEADER_SIZE)
+        );
+        if ((await this.getVariable(`is-logical:${partition}`)) === "yes") {
+            let totalBytes = 0;
+            if (isSparse(fileHeader)) {
+                let sparseHeader = parseFileHeader(fileHeader);
+                totalBytes = sparseHeader.blocks * sparseHeader.blockSize;
+            } else {
+                totalBytes = blob.size;
+            }
+
+            await this.runCommand(
+                `resize-logical-partition:${partition}:${totalBytes}`
+            );
+        }
+
         // Convert image to sparse (for splitting) if it exceeds the size limit
-        let fileHeader = await readBlobAsBuffer(blob.slice(0, FILE_HEADER_SIZE));
         if (blob.size > maxDlSize && !isSparse(fileHeader)) {
             logDebug(`${partition} image is raw, converting to sparse`);
 
@@ -575,10 +745,16 @@ class FastbootDevice {
             blob = new Blob([sparse]);
         }
 
-        logDebug(`Flashing ${blob.size} bytes to ${partition}, ${maxDlSize} bytes per split`);
+        logDebug(
+            `Flashing ${blob.size} bytes to ${partition}, ${maxDlSize} bytes per split`
+        );
         let splits = 0;
         for await (let splitBuffer of splitBlob(blob, maxDlSize)) {
-            await this._flashSingleSparse(partition, splitBuffer, maxDlSize);
+            await this.upload(partition, splitBuffer);
+
+            logDebug("Flashing payload...");
+            await this.runCommand(`flash:${partition}`);
+
             splits += 1;
         }
 
@@ -2885,6 +3061,26 @@ function configure(configuration) {
 const DB_NAME = "BlobStore";
 const DB_VERSION = 1;
 
+// Images needed for fastbootd
+const BOOT_CRITICAL_IMAGES = [
+    "boot",
+    "vendor_boot",
+    "dtbo",
+    "dt",
+    "vbmeta",
+    "vbmeta_system",
+];
+
+// Less critical images to flash after boot-critical ones
+const SYSTEM_IMAGES = [
+    "odm",
+    "product",
+    "product",
+    "system",
+    "system_ext",
+    "vendor",
+];
+
 class BlobStore {
     constructor() {
         this.db = null;
@@ -2909,11 +3105,14 @@ class BlobStore {
     }
 
     async init() {
-        this.db = await this._wrapReq(indexedDB.open(DB_NAME, DB_VERSION), (event) => {
-            let db = event.target.result;
-            db.createObjectStore("files", { keyPath: "name" });
-            /* no index needed for such a small database */
-        });
+        this.db = await this._wrapReq(
+            indexedDB.open(DB_NAME, DB_VERSION),
+            (event) => {
+                let db = event.target.result;
+                db.createObjectStore("files", { keyPath: "name" });
+                /* no index needed for such a small database */
+            }
+        );
     }
 
     async saveFile(name, blob) {
@@ -2925,7 +3124,9 @@ class BlobStore {
 
     async loadFile(name) {
         try {
-            let obj = await this._wrapReq(this.db.transaction("files").objectStore("files").get(name));
+            let obj = await this._wrapReq(
+                this.db.transaction("files").objectStore("files").get(name)
+            );
             return obj.blob;
         } catch (error) {
             return null;
@@ -2944,7 +3145,7 @@ async function downloadZip(url) {
 
     let filename = url.split("/").pop();
     let blob = await store.loadFile(filename);
-    if (blob == null) {
+    if (blob === null) {
         logDebug(`Downloading ${url}`);
         let resp = await fetch(new Request(url));
         blob = await resp.blob();
@@ -2952,52 +3153,105 @@ async function downloadZip(url) {
         await store.saveFile(filename, blob);
         logDebug("File saved");
     } else {
-        logDebug(`Loaded ${filename} from blob store, skipping download`);
+        logDebug(
+            `Loaded ${filename} from blob store, skipping download`
+        );
     }
 
     store.close();
     return blob;
 }
 
-async function flashEntryBlob(device, entry, progressCallback, partition) {
-    progressCallback("unpack", partition);
+async function flashEntryBlob(device, entry, onProgress, partition) {
+    logDebug(`Unpacking ${partition}`);
+    onProgress("unpack", partition);
     let blob = await entry.getData(new BlobWriter("application/octet-stream"));
-    progressCallback("flash", partition);
+
+    logDebug(`Flashing ${partition}`);
+    onProgress("flash", partition);
     await device.flashBlob(partition, blob);
 }
 
-async function flashZip(device, name, progressCallback = () => {}) {
+async function tryFlashImages(device, entries, onProgress, imageNames) {
+    for (let imageName of imageNames) {
+        let pattern = new RegExp(`${imageName}(?:-.+)?\\.img$`);
+        let entry = entries.find((entry) => entry.filename.match(pattern));
+        if (entry !== undefined) {
+            await flashEntryBlob(device, entry, onProgress, imageName);
+        }
+    }
+}
+
+async function flashZip(device, name, onProgress = () => {}) {
     let store = new BlobStore();
     await store.init();
 
     logDebug(`Loading ${name} as zip`);
     let reader = new ZipReader$1(new BlobReader(await store.loadFile(name)));
     let entries = await reader.getEntries();
-    for (let entry of entries) {
-        if (entry.filename.match(/avb_pkmd.bin$/)) {
-            logDebug("Flashing AVB custom key");
-            await flashEntryBlob(device, entry, progressCallback, "avb_custom_key");
-        } else if (entry.filename.match(/bootloader-.+\.img$/)) {
-            logDebug("Flashing bootloader image pack");
-            await flashEntryBlob(device, entry, progressCallback, "bootloader");
-        } else if (entry.filename.match(/radio-.+\.img$/)) {
-            logDebug("Flashing radio image pack");
-            await flashEntryBlob(device, entry, progressCallback, "radio");
-        } else if (entry.filename.match(/image-.+\.zip$/)) {
-            logDebug("Flashing images from nested images zip");
 
-            let imagesBlob = await entry.getData(new BlobWriter("application/zip"));
-            let imageReader = new ZipReader$1(new BlobReader(imagesBlob));
-            for (let image of await imageReader.getEntries()) {
-                if (!image.filename.endsWith(".img")) {
-                    continue;
-                }
+    // Bootloader and radio packs can only be flashed in the bare-metal bootloader
+    if ((await device.getVariable("is-userspace")) === "yes") {
+        await device.reboot("bootloader", true);
+    }
 
-                logDebug(`Flashing ${image.filename} from images zip`);
-                let partition = image.filename.replace(".img", "");
-                await flashEntryBlob(device, image, progressCallback, partition);
-            }
+    // 1. Bootloader pack
+    await tryFlashImages(device, entries, onProgress, ["bootloader"]);
+    onProgress("reboot");
+    await device.reboot("bootloader", true);
+
+    // 2. Radio pack
+    await tryFlashImages(device, entries, onProgress, ["radio"]);
+    onProgress("reboot");
+    await device.reboot("bootloader", true);
+
+    // Load nested images for the following steps
+    logDebug("Loading nested images from zip");
+    let entry = entries.find((e) => e.filename.match(/image-.+\.zip$/));
+    let imagesBlob = await entry.getData(new BlobWriter("application/zip"));
+    let imageReader = new ZipReader$1(new BlobReader(imagesBlob));
+    let imageEntries = await imageReader.getEntries();
+
+    // 3. Boot-critical images
+    await tryFlashImages(
+        device,
+        imageEntries,
+        onProgress,
+        BOOT_CRITICAL_IMAGES
+    );
+
+    // 4. Super partition template
+    // This is also where we reboot to fastbootd.
+    entry = imageEntries.find((e) => e.filename.endsWith("super_empty.img"));
+    if (entry !== undefined) {
+        await device.reboot("fastboot", true);
+
+        let superName = await device.getVariable("super-partition-name");
+        if (!superName) {
+            superName = "super";
         }
+
+        onProgress("flash", "super");
+        let blob = await entry.getData(
+            new BlobWriter("application/octet-stream")
+        );
+        await device.upload(superName, await readBlobAsBuffer(blob));
+        await device.runCommand(`update-super:${superName}`);
+    }
+
+    // 5. Remaining system images
+    await tryFlashImages(device, imageEntries, onProgress, SYSTEM_IMAGES);
+
+    // 6. Custom AVB key
+    // We unconditionally reboot back to the bootloader here if we're in fastbootd,
+    // even when there's no custom AVB key, because common follow-up actions like
+    // locking the bootloader and wiping data need to be done in the bootloader.
+    if ((await device.getVariable("is-userspace")) === "yes") {
+        await device.reboot("bootloader", true);
+    }
+    entry = entries.find((e) => e.filename.endsWith("avb_pkmd.bin"));
+    if (entry !== undefined) {
+        await flashEntryBlob(device, entry, onProgress, "avb_custom_key");
     }
 
     store.close();
@@ -3012,3 +3266,5 @@ var factory = /*#__PURE__*/Object.freeze({
 
 exports.FactoryImages = factory;
 exports.FastbootDevice = FastbootDevice;
+exports.FastbootError = FastbootError;
+exports.UsbError = UsbError;
