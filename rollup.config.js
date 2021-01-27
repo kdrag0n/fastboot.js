@@ -9,7 +9,7 @@ export default {
             format: "cjs",
         },
         {
-            file: "dist/fastboot.js",
+            file: "dist/fastboot.mjs",
             format: "es",
         },
         {
@@ -18,7 +18,7 @@ export default {
             plugins: [terser()],
         },
         {
-            file: "dist/fastboot.min.js",
+            file: "dist/fastboot.min.mjs",
             format: "es",
             plugins: [terser()],
         },
