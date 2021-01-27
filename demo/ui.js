@@ -47,7 +47,9 @@ async function downloadZip() {
     statusField.textContent = "Downloading...";
 
     try {
-        await FactoryImages.downloadZip("/releases/taimen-factory-2021.01.06.14.zip");
+        await FactoryImages.downloadZip(
+            "/releases/taimen-factory-2021.01.06.14.zip"
+        );
     } catch (error) {
         statusField.textContent = `Failed to download zip: ${error.message}`;
         throw error;
@@ -61,13 +63,17 @@ async function flashZip() {
     statusField.textContent = "Flashing...";
 
     try {
-        await FactoryImages.flashZip(device, "taimen-factory-2021.01.06.14.zip");
+        await FactoryImages.flashZip(
+            device,
+            "taimen-factory-2021.01.06.14.zip"
+        );
     } catch (error) {
         statusField.textContent = `Failed to flash zip: ${error.message}`;
         throw error;
     }
 
-    statusField.textContent = "Successfully flashed taimen-factory-2021.01.06.14.zip";
+    statusField.textContent =
+        "Successfully flashed taimen-factory-2021.01.06.14.zip";
 }
 
 FactoryImages.configureZip({
@@ -76,10 +82,16 @@ FactoryImages.configureZip({
     },
 });
 
-document.querySelector(".command-form").addEventListener("submit", sendFormCommand);
-document.querySelector(".connect-button").addEventListener("click", connectDevice);
+document
+    .querySelector(".command-form")
+    .addEventListener("submit", sendFormCommand);
+document
+    .querySelector(".connect-button")
+    .addEventListener("click", connectDevice);
 document.querySelector(".flash-form").addEventListener("submit", flashFormFile);
-document.querySelector(".download-zip-button").addEventListener("click", downloadZip);
+document
+    .querySelector(".download-zip-button")
+    .addEventListener("click", downloadZip);
 document.querySelector(".flash-zip-button").addEventListener("click", flashZip);
 
 // @license-end

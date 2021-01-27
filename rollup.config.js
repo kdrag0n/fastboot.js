@@ -15,19 +15,13 @@ export default {
         {
             file: "dist/fastboot.min.cjs",
             format: "cjs",
-            plugins: [
-                terser(),
-            ],
+            plugins: [terser()],
         },
         {
             file: "dist/fastboot.min.js",
             format: "es",
-            plugins: [
-                terser(),
-            ],
+            plugins: [terser()],
         },
     ],
-    plugins: [
-        nodeResolve(),
-    ],
+    plugins: [nodeResolve()],
 };
