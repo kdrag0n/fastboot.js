@@ -29,7 +29,7 @@
 
         <div>
             <form class="flash-form">
-                <label for="flash-file">Flash:</label>
+                <label for="flash-file">Flash image:</label>
                 <input type="file" name="flash-file" class="flash-file" />
                 <br />
                 <label for="flash-partition">Partition:</label>
@@ -46,9 +46,19 @@
 
         <div>
             <p>Status: <span class="factory-status-field"></span></p>
-            <button class="download-zip-button">Download factory zip</button>
+            <form class="factory-form">
+                <label for="factory-file">Flash custom factory images zip:</label>
+                <br />
+                <input type="file" name="factory-file" class="factory-file" />
+                <br />
+                <input type="submit" value="Flash selected zip" />
+            </form>
             <br />
-            <button class="flash-zip-button">Flash from zip</button>
+            <span>Flash test zip (only works locally):</span>
+            <br />
+            <button class="download-zip-button">Download taimen factory zip</button>
+            <br />
+            <button class="flash-zip-button">Flash downloaded zip</button>
             <br />
             <pre class="factory-flash-log"></pre>
         </div>

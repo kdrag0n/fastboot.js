@@ -62,13 +62,11 @@ async function downloadZip() {
     statusField.textContent = "Downloaded";
 }
 
-async function flashZip() {
+async function flashFactoryZip(blob) {
     let statusField = document.querySelector(".factory-status-field");
     statusField.textContent = "Flashing...";
 
-    await blobStore.init();
     try {
-        let blob = await blobStore.loadFile("taimen-factory-2021.01.06.14.zip");
         await fastboot.FactoryImages.flashZip(device, blob, (action, item) => {
             let userAction =
                 action[0].toUpperCase() + action.substring(1) + "ing ";
@@ -79,8 +77,21 @@ async function flashZip() {
         throw error;
     }
 
-    statusField.textContent =
-        "Successfully flashed taimen-factory-2021.01.06.14.zip";
+    statusField.textContent = "Successfully flashed factory images";
+}
+
+async function flashSelectedFactoryZip(event) {
+    event.preventDefault();
+
+    let fileField = document.querySelector(".factory-file");
+    await flashFactoryZip(fileField.files[0]);
+    fileField.value = "";
+}
+
+async function flashDownloadedFactoryZip() {
+    await blobStore.init();
+    let blob = await blobStore.loadFile("taimen-factory-2021.01.06.14.zip");
+    await flashFactoryZip(blob);
 }
 
 fastboot.FactoryImages.configureZip({
@@ -99,6 +110,11 @@ document.querySelector(".flash-form").addEventListener("submit", flashFormFile);
 document
     .querySelector(".download-zip-button")
     .addEventListener("click", downloadZip);
-document.querySelector(".flash-zip-button").addEventListener("click", flashZip);
+document
+    .querySelector(".factory-form")
+    .addEventListener("submit", flashSelectedFactoryZip);
+document
+    .querySelector(".flash-zip-button")
+    .addEventListener("click", flashDownloadedFactoryZip);
 
 // @license-end
