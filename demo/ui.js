@@ -69,7 +69,11 @@ async function flashZip() {
     await blobStore.init();
     try {
         let blob = await blobStore.loadFile("taimen-factory-2021.01.06.14.zip");
-        await fastboot.FactoryImages.flashZip(device, blob);
+        await fastboot.FactoryImages.flashZip(device, blob, (action, item) => {
+            let userAction =
+                action[0].toUpperCase() + action.substring(1) + "ing ";
+            statusField.textContent = userAction + (item ? item : "");
+        });
     } catch (error) {
         statusField.textContent = `Failed to flash zip: ${error.message}`;
         throw error;
