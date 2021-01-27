@@ -1,9 +1,27 @@
+let debugMode = false;
+
 function logDebug(...data) {
-    {
+    if (debugMode) {
         console.log(...data);
     }
 }
 
+/**
+ * Enables or disables debug mode. In debug mode, fastboot.js prints detailed
+ * logs to the browser console.
+ *
+ * @param {boolean} mode - Whether to enable debug mode.
+ */
+function setDebugMode(mode) {
+    debugMode = mode;
+}
+
+/**
+ * Reads all of the data in the given blob and returns it as an ArrayBuffer.
+ *
+ * @param {Blob} blob - Blob with the data to read.
+ * @returns {buffer} ArrayBuffer containing data from the blob.
+ */
 function readBlobAsBuffer(blob) {
     return new Promise((resolve, reject) => {
         let reader = new FileReader();
@@ -44,6 +62,12 @@ class ImageError extends Error {
     }
 }
 
+/**
+ * Returns a parsed version of the sparse image file header from the given buffer.
+ *
+ * @param {ArrayBuffer} buffer - Raw file header data.
+ * @returns {header} Object containing the header information.
+ */
 function parseFileHeader(buffer) {
     let view = new DataView(buffer);
 
@@ -430,7 +454,7 @@ class FastbootDevice {
             // select a specific one to reduce ambiguity. This is also necessary
             // if no devices are already paired, i.e. first use.
             logDebug(
-                "Multiple paired devices are connected, requesting one"
+                "No or multiple paired devices are connected, requesting one"
             );
             this.device = await navigator.usb.requestDevice({
                 filters: [
@@ -3054,9 +3078,6 @@ function configure(configuration) {
 	}
 }
 
-const DB_NAME = "BlobStore";
-const DB_VERSION = 1;
-
 // Images needed for fastbootd
 const BOOT_CRITICAL_IMAGES = [
     "boot",
@@ -3076,87 +3097,6 @@ const SYSTEM_IMAGES = [
     "system_ext",
     "vendor",
 ];
-
-class BlobStore {
-    constructor() {
-        this.db = null;
-    }
-
-    async _wrapReq(request, onUpgrade = null) {
-        return new Promise((resolve, reject) => {
-            request.onsuccess = () => {
-                resolve(request.result);
-            };
-            request.oncomplete = () => {
-                resolve(request.result);
-            };
-            request.onerror = (event) => {
-                reject(event);
-            };
-
-            if (onUpgrade !== null) {
-                request.onupgradeneeded = onUpgrade;
-            }
-        });
-    }
-
-    async init() {
-        this.db = await this._wrapReq(
-            indexedDB.open(DB_NAME, DB_VERSION),
-            (event) => {
-                let db = event.target.result;
-                db.createObjectStore("files", { keyPath: "name" });
-                /* no index needed for such a small database */
-            }
-        );
-    }
-
-    async saveFile(name, blob) {
-        this.db.transaction(["files"], "readwrite").objectStore("files").add({
-            name: name,
-            blob: blob,
-        });
-    }
-
-    async loadFile(name) {
-        try {
-            let obj = await this._wrapReq(
-                this.db.transaction("files").objectStore("files").get(name)
-            );
-            return obj.blob;
-        } catch (error) {
-            return null;
-        }
-    }
-
-    async close() {
-        this.db.close();
-    }
-}
-
-async function downloadZip(url) {
-    // Open the DB first to get user consent
-    let store = new BlobStore();
-    await store.init();
-
-    let filename = url.split("/").pop();
-    let blob = await store.loadFile(filename);
-    if (blob === null) {
-        logDebug(`Downloading ${url}`);
-        let resp = await fetch(new Request(url));
-        blob = await resp.blob();
-        logDebug("File downloaded, saving...");
-        await store.saveFile(filename, blob);
-        logDebug("File saved");
-    } else {
-        logDebug(
-            `Loaded ${filename} from blob store, skipping download`
-        );
-    }
-
-    store.close();
-    return blob;
-}
 
 async function flashEntryBlob(device, entry, onProgress, partition) {
     logDebug(`Unpacking ${partition}`);
@@ -3178,12 +3118,26 @@ async function tryFlashImages(device, entries, onProgress, imageNames) {
     }
 }
 
-async function flashZip(device, name, onProgress = () => {}) {
-    let store = new BlobStore();
-    await store.init();
+/**
+ * Callback for factory image flashing progress.
+ *
+ * @callback FactoryFlashCallback
+ * @param {string} action - Action in the flashing process, e.g. unpack/flash.
+ * @param {string} item - Item processed by the action, e.g. partition being flashed.
+ */
 
-    logDebug(`Loading ${name} as zip`);
-    let reader = new ZipReader$1(new BlobReader(await store.loadFile(name)));
+/**
+ * Flashes the given factory images zip onto the device, with automatic handling
+ * of handling firmware, system, and logical partitions as AOSP fastboot and
+ * flash-all.sh would do.
+ * Equivalent to `fastboot update name.zip`.
+ *
+ * @param {FastbootDevice} device - Fastboot device to flash.
+ * @param {Blob} blob - Blob containing the zip file to flash.
+ * @param {FactoryFlashCallback} onProgress - Progress callback for image flashing.
+ */
+async function flashZip(device, blob, onProgress = () => {}) {
+    let reader = new ZipReader$1(new BlobReader(blob));
     let entries = await reader.getEntries();
 
     // Bootloader and radio packs can only be flashed in the bare-metal bootloader
@@ -3228,10 +3182,13 @@ async function flashZip(device, name, onProgress = () => {}) {
         }
 
         onProgress("flash", "super");
-        let blob = await entry.getData(
+        let superBlob = await entry.getData(
             new BlobWriter("application/octet-stream")
         );
-        await device.upload(superName, await readBlobAsBuffer(blob));
+        await device.upload(
+            superName,
+            await readBlobAsBuffer(superBlob)
+        );
         await device.runCommand(`update-super:${superName}`);
     }
 
@@ -3249,15 +3206,12 @@ async function flashZip(device, name, onProgress = () => {}) {
     if (entry !== undefined) {
         await flashEntryBlob(device, entry, onProgress, "avb_custom_key");
     }
-
-    store.close();
 }
 
 var factory = /*#__PURE__*/Object.freeze({
     __proto__: null,
-    downloadZip: downloadZip,
     flashZip: flashZip,
     configureZip: configure
 });
 
-export { factory as FactoryImages, FastbootDevice, FastbootError, UsbError };
+export { factory as FactoryImages, FastbootDevice, FastbootError, UsbError, setDebugMode };
