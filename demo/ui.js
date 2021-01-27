@@ -1,8 +1,10 @@
 // @license magnet:?xt=urn:btih:d3d9a9a6595521f9666a5e94cc830dab83b65699&dn=expat.txt MIT
 
 import { FastbootDevice, FactoryImages } from "../dist/fastboot.mjs";
+import { BlobStore } from "./download.js";
 
 let device = new FastbootDevice();
+let blobStore = new BlobStore();
 
 async function connectDevice() {
     let statusField = document.querySelector(".status-field");
@@ -46,10 +48,9 @@ async function downloadZip() {
     let statusField = document.querySelector(".factory-status-field");
     statusField.textContent = "Downloading...";
 
+    await blobStore.init();
     try {
-        await FactoryImages.downloadZip(
-            "/releases/taimen-factory-2021.01.06.14.zip"
-        );
+        await blobStore.download("/releases/taimen-factory-2021.01.06.14.zip");
     } catch (error) {
         statusField.textContent = `Failed to download zip: ${error.message}`;
         throw error;
@@ -62,11 +63,10 @@ async function flashZip() {
     let statusField = document.querySelector(".factory-status-field");
     statusField.textContent = "Flashing...";
 
+    await blobStore.init();
     try {
-        await FactoryImages.flashZip(
-            device,
-            "taimen-factory-2021.01.06.14.zip"
-        );
+        let blob = await blobStore.loadFile("taimen-factory-2021.01.06.14.zip");
+        await FactoryImages.flashZip(device, blob);
     } catch (error) {
         statusField.textContent = `Failed to flash zip: ${error.message}`;
         throw error;
