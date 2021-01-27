@@ -39,21 +39,16 @@ interface ResponseData {
  * Implements fastboot commands and operations for a device connected over USB.
  */
 export class FastbootDevice {
-  device: USBDevice | null;
+  device?: USBDevice;
   /**
    * Creates a new fastboot device object ready to connect to a USB device.
    * This does not actually connect to any devices.
    *
    * @see connect
-   *
-   * @todo This kinda sucks, shouldn't be setting things to null
    */
-  constructor() {
-    this.device = null; // ?
-  }
 
   get isConnected(): boolean {
-    return this.device !== null;
+    return !!this.device;
   }
 
   /**
@@ -80,8 +75,8 @@ export class FastbootDevice {
       throw new UsbError('Interface has wrong number of endpoints');
     }
 
-    let epIn = null;
-    let epOut = null;
+    let epIn;
+    let epOut;
     for (const endpoint of ife.endpoints) {
       common.logDebug('Checking endpoint:', endpoint);
       if (endpoint.type !== 'bulk') {
@@ -89,13 +84,13 @@ export class FastbootDevice {
       }
 
       if (endpoint.direction === 'in') {
-        if (epIn == null) {
+        if (!epIn) {
           epIn = endpoint.endpointNumber;
         } else {
           throw new UsbError('Interface has multiple IN endpoints');
         }
       } else if (endpoint.direction == 'out') {
-        if (epOut == null) {
+        if (!epOut) {
           epOut = endpoint.endpointNumber;
         } else {
           throw new UsbError('Interface has multiple OUT endpoints');
@@ -278,7 +273,7 @@ export class FastbootDevice {
 
     // Check with the device and make sure size matches
     const downloadResp = await this.runCommand(`download:${xferHex}`);
-    if (downloadResp.dataSize == null) {
+    if (!downloadResp.dataSize) {
       throw new FastbootError(
         'FAIL',
         `Unexpected response to download command: ${downloadResp.text}`,

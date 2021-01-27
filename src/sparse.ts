@@ -130,11 +130,11 @@ function createImage(header: Header, chunks: Chunk[]) {
   let chunkOff = FILE_HEADER_SIZE;
   for (const chunk of chunks) {
     let typeMagic;
-    if (chunk.type == 'raw') {
+    if (chunk.type === 'raw') {
       typeMagic = CHUNK_TYPE_RAW;
-    } else if (chunk.type == 'fill') {
+    } else if (chunk.type === 'fill') {
       typeMagic = CHUNK_TYPE_FILL;
-    } else if (chunk.type == 'skip') {
+    } else if (chunk.type === 'skip') {
       typeMagic = CHUNK_TYPE_SKIP;
     } else {
       // We don't support the undocumented 0xCAC4 CRC32 chunk type because
