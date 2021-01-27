@@ -67,7 +67,7 @@ async function flashFactoryZip(blob) {
     statusField.textContent = "Flashing...";
 
     try {
-        await fastboot.FactoryImages.flashZip(device, blob, (action, item) => {
+        await fastboot.FactoryImages.flashZip(device, blob, false, (action, item) => {
             let userAction =
                 action[0].toUpperCase() + action.substring(1) + "ing ";
             statusField.textContent = userAction + (item ? item : "");
