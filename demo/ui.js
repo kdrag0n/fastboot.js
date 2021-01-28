@@ -67,11 +67,15 @@ async function flashFactoryZip(blob) {
     statusField.textContent = "Flashing...";
 
     try {
-        await fastboot.FactoryImages.flashZip(device, blob, false, (action, item) => {
-            let userAction =
-                action[0].toUpperCase() + action.substring(1) + "ing ";
-            statusField.textContent = userAction + (item ? item : "");
-        });
+        await fastboot.FactoryImages.flashZip(
+            device,
+            blob,
+            false,
+            (action, item) => {
+                let userAction = fastboot.FactoryImages.USER_ACTION_MAP[action];
+                statusField.textContent = `${userAction} ${item}`;
+            }
+        );
     } catch (error) {
         statusField.textContent = `Failed to flash zip: ${error.message}`;
         throw error;
