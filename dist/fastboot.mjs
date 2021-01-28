@@ -3126,6 +3126,14 @@ const SYSTEM_IMAGES = [
     "vendor",
 ];
 
+/** User-friendly action strings */
+const USER_ACTION_MAP = {
+    unpack: "Unpacking",
+    flash: "Flashing",
+    wipe: "Wiping",
+    reboot: "Restarting",
+};
+
 async function flashEntryBlob(device, entry, onProgress, partition) {
     logDebug(`Unpacking ${partition}`);
     onProgress("unpack", partition);
@@ -3162,7 +3170,9 @@ async function checkRequirements(device, androidInfo) {
             let realValue = await device.getVariable(variable);
 
             if (expectValues.includes(realValue)) {
-                logDebug(`Requirement ${variable}=${expectValue} passed`);
+                logDebug(
+                    `Requirement ${variable}=${expectValue} passed`
+                );
             } else {
                 let msg = `Requirement ${variable}=${expectValue} failed, value = ${realValue}`;
                 logDebug(msg);
@@ -3202,12 +3212,12 @@ async function flashZip(device, blob, wipe, onProgress = () => {}) {
 
     // 1. Bootloader pack
     await tryFlashImages(device, entries, onProgress, ["bootloader"]);
-    onProgress("reboot");
+    onProgress("reboot", "device");
     await device.reboot("bootloader", true);
 
     // 2. Radio pack
     await tryFlashImages(device, entries, onProgress, ["radio"]);
-    onProgress("reboot");
+    onProgress("reboot", "device");
     await device.reboot("bootloader", true);
 
     // Cancel snapshot update if in progress
@@ -3249,7 +3259,7 @@ async function flashZip(device, blob, wipe, onProgress = () => {}) {
             superName = "super";
         }
 
-        onProgress("flash", "super");
+        onProgress(wipe ? "wipe" : "flash", "super");
         let superBlob = await entry.getData(
             new BlobWriter("application/octet-stream")
         );
@@ -3257,7 +3267,9 @@ async function flashZip(device, blob, wipe, onProgress = () => {}) {
             superName,
             await readBlobAsBuffer(superBlob)
         );
-        await device.runCommand(`update-super:${superName}${wipe ? ':wipe' : ''}`);
+        await device.runCommand(
+            `update-super:${superName}${wipe ? ":wipe" : ""}`
+        );
     }
 
     // 6. Remaining system images
@@ -3277,12 +3289,14 @@ async function flashZip(device, blob, wipe, onProgress = () => {}) {
 
     // 8. Wipe userdata
     if (wipe) {
+        onProgress("wipe", "data");
         await device.runCommand("erase:userdata");
     }
 }
 
 var factory = /*#__PURE__*/Object.freeze({
     __proto__: null,
+    USER_ACTION_MAP: USER_ACTION_MAP,
     flashZip: flashZip,
     configureZip: configure
 });
