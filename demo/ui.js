@@ -62,6 +62,15 @@ async function downloadZip() {
     statusField.textContent = "Downloaded";
 }
 
+function reconnectCallback() {
+    let reconnectButton = document.querySelector(".reconnect-button");
+    reconnectButton.style.display = "block";
+    reconnectButton.onclick = async () => {
+        await device.connect();
+        reconnectButton.style.display = "none";
+    };
+}
+
 async function flashFactoryZip(blob) {
     let statusField = document.querySelector(".factory-status-field");
     statusField.textContent = "Flashing...";
@@ -71,6 +80,8 @@ async function flashFactoryZip(blob) {
             device,
             blob,
             false,
+            reconnectCallback,
+            // Progress callback
             (action, item) => {
                 let userAction = fastboot.FactoryImages.USER_ACTION_MAP[action];
                 statusField.textContent = `${userAction} ${item}`;
