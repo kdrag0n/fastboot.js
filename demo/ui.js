@@ -62,14 +62,13 @@ async function downloadZip() {
     statusField.textContent = "Downloaded";
 }
 
-async function reconnectCallback() {
+function reconnectCallback() {
     let reconnectButton = document.querySelector(".reconnect-button");
     reconnectButton.style.display = "block";
-    await new Promise((resolve, _reject) => {
-        reconnectButton.addEventListener("click", resolve, {once: true});
-    });
-    await device.connect();
-    reconnectButton.style.display = "none";
+    reconnectButton.onclick = async () => {
+        await device.connect();
+        reconnectButton.style.display = "none";
+    };
 }
 
 async function flashFactoryZip(blob) {
