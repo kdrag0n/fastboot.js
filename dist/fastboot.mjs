@@ -381,8 +381,10 @@ class FastbootDevice {
      */
     constructor() {
         this.device = null;
+        this._registeredUsbListeners = false;
         this._connectResolve = null;
         this._connectReject = null;
+        this._disconnectResolve = null;
     }
 
     /**
@@ -398,6 +400,36 @@ class FastbootDevice {
      * @private
      */
     async _validateAndConnectDevice() {
+        // Validate device
+        let ife = this.device.configurations[0].interfaces[0].alternates[0];
+        if (ife.endpoints.length !== 2) {
+            throw new UsbError("Interface has wrong number of endpoints");
+        }
+
+        let epIn = null;
+        let epOut = null;
+        for (let endpoint of ife.endpoints) {
+            logDebug("Checking endpoint:", endpoint);
+            if (endpoint.type !== "bulk") {
+                throw new UsbError("Interface endpoint is not bulk");
+            }
+
+            if (endpoint.direction === "in") {
+                if (epIn === null) {
+                    epIn = endpoint.endpointNumber;
+                } else {
+                    throw new UsbError("Interface has multiple IN endpoints");
+                }
+            } else if (endpoint.direction === "out") {
+                if (epOut === null) {
+                    epOut = endpoint.endpointNumber;
+                } else {
+                    throw new UsbError("Interface has multiple OUT endpoints");
+                }
+            }
+        }
+        logDebug("Endpoints: in =", epIn, ", out =", epOut);
+
         try {
             await this.device.open();
             // Opportunistically reset to fix issues on some platforms
@@ -428,11 +460,44 @@ class FastbootDevice {
     }
 
     /**
+     * Wait for the current USB device to disconnect, if it's still connected.
+     * This function returns immediately if no device is connected.
+     */
+    async waitForDisconnect() {
+        if (this.device === null) {
+            return;
+        }
+
+        return await new Promise((resolve, _reject) => {
+            this._disconnectResolve = resolve;
+        });
+    }
+
+    /**
+     * Callback for reconnecting the USB device.
+     * This is necessary because some platforms do not support automatic reconnection,
+     * and USB connection requests can only be triggered as the result of explicit
+     * user action.
+     *
+     * @callback ReconnectCallback
+     */
+
+    /**
      * Wait for the USB device to connect. This function returns at the next
      * connection, regardless of whether the device is the same.
+     * 
+     * @param {ReconnectCallback} onReconnect - Callback to request device reconnection.
      */
-    waitForConnect() {
-        return new Promise((resolve, reject) => {
+    async waitForConnect(onReconnect = async () => {}) {
+        // On Android, we need to request the user to reconnect the device manually
+        // because there is no support for automatic reconnection.
+        if (navigator.userAgent.includes("Android")) {
+            await this.waitForDisconnect();
+            await onReconnect();
+            return 
+        }
+
+        return await new Promise((resolve, reject) => {
             this._connectResolve = resolve;
             this._connectReject = reject;
         });
@@ -468,48 +533,26 @@ class FastbootDevice {
         }
         logDebug("Using USB device:", this.device);
 
-        // Validate device
-        let ife = this.device.configurations[0].interfaces[0].alternates[0];
-        if (ife.endpoints.length !== 2) {
-            throw new UsbError("Interface has wrong number of endpoints");
-        }
-
-        let epIn = null;
-        let epOut = null;
-        for (let endpoint of ife.endpoints) {
-            logDebug("Checking endpoint:", endpoint);
-            if (endpoint.type !== "bulk") {
-                throw new UsbError("Interface endpoint is not bulk");
-            }
-
-            if (endpoint.direction === "in") {
-                if (epIn === null) {
-                    epIn = endpoint.endpointNumber;
-                } else {
-                    throw new UsbError("Interface has multiple IN endpoints");
+        if (!this._registeredUsbListeners) {
+            navigator.usb.addEventListener("disconnect", (event) => {
+                if (event.device === this.device) {
+                    logDebug("USB device disconnected");
+                    this.device = null;
+                    if (this._disconnectResolve !== null) {
+                        this._disconnectResolve();
+                        this._disconnectResolve = null;
+                    }
                 }
-            } else if (endpoint.direction === "out") {
-                if (epOut === null) {
-                    epOut = endpoint.endpointNumber;
-                } else {
-                    throw new UsbError("Interface has multiple OUT endpoints");
-                }
-            }
+            });
+
+            navigator.usb.addEventListener("connect", async (event) => {
+                logDebug("USB device connected");
+                this.device = event.device;
+                await this._validateAndConnectDevice();
+            });
+
+            this._registeredUsbListeners = true;
         }
-        logDebug("Endpoints: in =", epIn, ", out =", epOut);
-
-        navigator.usb.addEventListener("disconnect", (event) => {
-            if (event.device === this.device) {
-                logDebug("USB device disconnected");
-                this.device = null;
-            }
-        });
-
-        navigator.usb.addEventListener("connect", async (event) => {
-            logDebug("USB device connected");
-            this.device = event.device;
-            await this._validateAndConnectDevice();
-        });
 
         await this._validateAndConnectDevice();
     }
@@ -707,8 +750,9 @@ class FastbootDevice {
      *
      * @param {string} target - Where to reboot to, i.e. fastboot or bootloader.
      * @param {boolean} wait - Whether to wait for the device to reconnect.
+     * @param {ReconnectCallback} onReconnect - Callback to request device reconnection, if wait is enabled.
      */
-    async reboot(target = "", wait = false) {
+    async reboot(target = "", wait = false, onReconnect = async () => {}) {
         if (target.length > 0) {
             await this.runCommand(`reboot-${target}`);
         } else {
@@ -716,7 +760,7 @@ class FastbootDevice {
         }
 
         if (wait) {
-            await this.waitForConnect();
+            await this.waitForConnect(onReconnect);
         }
     }
 
@@ -3183,6 +3227,15 @@ async function checkRequirements(device, androidInfo) {
 }
 
 /**
+ * Callback for reconnecting the USB device.
+ * This is necessary because some platforms do not support automatic reconnection,
+ * and USB connection requests can only be triggered as the result of explicit
+ * user action.
+ *
+ * @callback ReconnectCallback
+ */
+
+/**
  * Callback for factory image flashing progress.
  *
  * @callback FactoryFlashCallback
@@ -3199,26 +3252,27 @@ async function checkRequirements(device, androidInfo) {
  * @param {FastbootDevice} device - Fastboot device to flash.
  * @param {Blob} blob - Blob containing the zip file to flash.
  * @param {boolean} wipe - Whether to wipe super and userdata. Equivalent to `fastboot -w`.
+ * @param {ReconnectCallback} onReconnect - Callback to request device reconnection.
  * @param {FactoryFlashCallback} onProgress - Progress callback for image flashing.
  */
-async function flashZip(device, blob, wipe, onProgress = () => {}) {
+async function flashZip(device, blob, wipe, onReconnect, onProgress = () => {}) {
     let reader = new ZipReader$1(new BlobReader(blob));
     let entries = await reader.getEntries();
 
     // Bootloader and radio packs can only be flashed in the bare-metal bootloader
     if ((await device.getVariable("is-userspace")) === "yes") {
-        await device.reboot("bootloader", true);
+        await device.reboot("bootloader", true, onReconnect);
     }
 
     // 1. Bootloader pack
     await tryFlashImages(device, entries, onProgress, ["bootloader"]);
     onProgress("reboot", "device");
-    await device.reboot("bootloader", true);
+    await device.reboot("bootloader", true, onReconnect);
 
     // 2. Radio pack
     await tryFlashImages(device, entries, onProgress, ["radio"]);
     onProgress("reboot", "device");
-    await device.reboot("bootloader", true);
+    await device.reboot("bootloader", true, onReconnect);
 
     // Cancel snapshot update if in progress
     let snapshotStatus = await device.getVariable("snapshot-update-status");
