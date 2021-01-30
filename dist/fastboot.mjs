@@ -474,11 +474,29 @@ class FastbootDevice {
     }
 
     /**
+     * Callback for reconnecting the USB device.
+     * This is necessary because some platforms do not support automatic reconnection,
+     * and USB connection requests can only be triggered as the result of explicit
+     * user action.
+     *
+     * @callback ReconnectCallback
+     */
+
+    /**
      * Wait for the USB device to connect. This function returns at the next
      * connection, regardless of whether the device is the same.
+     *
+     * @param {ReconnectCallback} onReconnect - Callback to request device reconnection.
      */
-    waitForConnect() {
-        return new Promise((resolve, reject) => {
+    async waitForConnect(onReconnect = () => {}) {
+        // On Android, we need to request the user to reconnect the device manually
+        // because there is no support for automatic reconnection.
+        if (navigator.userAgent.includes("Android")) {
+            await this.waitForDisconnect();
+            onReconnect();
+        }
+
+        return await new Promise((resolve, reject) => {
             this._connectResolve = resolve;
             this._connectReject = reject;
         });
@@ -731,8 +749,9 @@ class FastbootDevice {
      *
      * @param {string} target - Where to reboot to, i.e. fastboot or bootloader.
      * @param {boolean} wait - Whether to wait for the device to reconnect.
+     * @param {ReconnectCallback} onReconnect - Callback to request device reconnection, if wait is enabled.
      */
-    async reboot(target = "", wait = false) {
+    async reboot(target = "", wait = false, onReconnect = () => {}) {
         if (target.length > 0) {
             await this.runCommand(`reboot-${target}`);
         } else {
@@ -740,7 +759,7 @@ class FastbootDevice {
         }
 
         if (wait) {
-            await this.waitForConnect();
+            await this.waitForConnect(onReconnect);
         }
     }
 
@@ -3207,6 +3226,15 @@ async function checkRequirements(device, androidInfo) {
 }
 
 /**
+ * Callback for reconnecting the USB device.
+ * This is necessary because some platforms do not support automatic reconnection,
+ * and USB connection requests can only be triggered as the result of explicit
+ * user action.
+ *
+ * @callback ReconnectCallback
+ */
+
+/**
  * Callback for factory image flashing progress.
  *
  * @callback FactoryFlashCallback
@@ -3223,26 +3251,33 @@ async function checkRequirements(device, androidInfo) {
  * @param {FastbootDevice} device - Fastboot device to flash.
  * @param {Blob} blob - Blob containing the zip file to flash.
  * @param {boolean} wipe - Whether to wipe super and userdata. Equivalent to `fastboot -w`.
+ * @param {ReconnectCallback} onReconnect - Callback to request device reconnection.
  * @param {FactoryFlashCallback} onProgress - Progress callback for image flashing.
  */
-async function flashZip(device, blob, wipe, onProgress = () => {}) {
+async function flashZip(
+    device,
+    blob,
+    wipe,
+    onReconnect,
+    onProgress = () => {}
+) {
     let reader = new ZipReader$1(new BlobReader(blob));
     let entries = await reader.getEntries();
 
     // Bootloader and radio packs can only be flashed in the bare-metal bootloader
     if ((await device.getVariable("is-userspace")) === "yes") {
-        await device.reboot("bootloader", true);
+        await device.reboot("bootloader", true, onReconnect);
     }
 
     // 1. Bootloader pack
     await tryFlashImages(device, entries, onProgress, ["bootloader"]);
     onProgress("reboot", "device");
-    await device.reboot("bootloader", true);
+    await device.reboot("bootloader", true, onReconnect);
 
     // 2. Radio pack
     await tryFlashImages(device, entries, onProgress, ["radio"]);
     onProgress("reboot", "device");
-    await device.reboot("bootloader", true);
+    await device.reboot("bootloader", true, onReconnect);
 
     // Cancel snapshot update if in progress
     let snapshotStatus = await device.getVariable("snapshot-update-status");
@@ -3252,6 +3287,7 @@ async function flashZip(device, blob, wipe, onProgress = () => {}) {
 
     // Load nested images for the following steps
     logDebug("Loading nested images from zip");
+    onProgress("unpack", "images");
     let entry = entries.find((e) => e.filename.match(/image-.+\.zip$/));
     let imagesBlob = await entry.getData(new BlobWriter("application/zip"));
     let imageReader = new ZipReader$1(new BlobReader(imagesBlob));
