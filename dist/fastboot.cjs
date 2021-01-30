@@ -3344,7 +3344,7 @@ async function flashZip(
     // even when there's no custom AVB key, because common follow-up actions like
     // locking the bootloader and wiping data need to be done in the bootloader.
     if ((await device.getVariable("is-userspace")) === "yes") {
-        await device.reboot("bootloader", true);
+        await device.reboot("bootloader", true, onReconnect);
     }
     entry = entries.find((e) => e.filename.endsWith("avb_pkmd.bin"));
     if (entry !== undefined) {
