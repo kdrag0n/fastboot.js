@@ -61,6 +61,8 @@ async function runWithTimedProgress(onProgress, action, item, duration, workProm
     await Promise.race([progressPromise, workPromise]);
     stop = true;
     await progressPromise;
+
+    onProgress(action, item, 1.0);
 }
 
 const FILE_MAGIC = 0xed26ff3a;
