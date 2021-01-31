@@ -769,7 +769,7 @@ class FastbootDevice {
      * @param {ProgressCallback} onProgress - Callback for upload progress updates.
      * @throws {FastbootError}
      */
-    async upload(partition, buffer, onProgress) {
+    async upload(partition, buffer, onProgress = () => {}) {
         logDebug(
             `Uploading single sparse to ${partition}: ${buffer.byteLength} bytes`
         );
@@ -3419,13 +3419,17 @@ async function flashZip(
             superName = "super";
         }
 
-        onProgress(wipe ? "wipe" : "flash", "super", 0.0);
+        let superAction = wipe ? "wipe" : "flash";
+        onProgress(superAction, "super", 0.0);
         let superBlob = await entry.getData(
             new BlobWriter("application/octet-stream")
         );
         await device.upload(
             superName,
-            await readBlobAsBuffer(superBlob)
+            await readBlobAsBuffer(superBlob),
+            (progress) => {
+                onProgress(superAction, "super", progress);
+            },
         );
         await device.runCommand(
             `update-super:${superName}${wipe ? ":wipe" : ""}`
