@@ -61,6 +61,7 @@ async function runWithTimedProgress(onProgress, action, item, duration, workProm
     await Promise.race([progressPromise, workPromise]);
     stop = true;
     await progressPromise;
+    await workPromise;
 
     onProgress(action, item, 1.0);
 }
