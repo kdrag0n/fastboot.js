@@ -3240,6 +3240,7 @@ const USER_ACTION_MAP = {
 
 const BOOTLOADER_REBOOT_TIME = 3000; // ms
 const FASTBOOTD_REBOOT_TIME = 16000; // ms
+const USERDATA_ERASE_TIME = 1000; // ms
 
 async function flashEntryBlob(device, entry, onProgress, partition) {
     logDebug(`Unpacking ${partition}`);
@@ -3449,8 +3450,13 @@ async function flashZip(
 
     // 8. Wipe userdata
     if (wipe) {
-        onProgress("wipe", "data", 0.0);
-        await device.runCommand("erase:userdata");
+        await runWithTimedProgress(
+            onProgress,
+            "wipe",
+            "data",
+            USERDATA_ERASE_TIME,
+            device.runCommand("erase:userdata")
+        );
     }
 }
 
