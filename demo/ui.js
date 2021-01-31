@@ -75,6 +75,8 @@ async function flashFactoryZip(blob) {
     let statusField = document.querySelector(".factory-status-field");
     statusField.textContent = "Flashing...";
 
+    let progressBar = document.querySelector(".factory-progress-bar");
+
     try {
         await fastboot.FactoryImages.flashZip(
             device,
@@ -82,9 +84,10 @@ async function flashFactoryZip(blob) {
             false,
             reconnectCallback,
             // Progress callback
-            (action, item) => {
+            (action, item, progress) => {
                 let userAction = fastboot.FactoryImages.USER_ACTION_MAP[action];
                 statusField.textContent = `${userAction} ${item}`;
+                progressBar.value = progress;
             }
         );
     } catch (error) {
