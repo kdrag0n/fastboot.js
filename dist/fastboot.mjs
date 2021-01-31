@@ -36,6 +36,33 @@ function readBlobAsBuffer(blob) {
     });
 }
 
+function waitForFrame() {
+    return new Promise((resolve, _reject) => {
+        window.requestAnimationFrame(resolve);
+    });
+}
+
+async function runWithTimedProgress(onProgress, action, item, duration, workPromise) {
+    let startTime = new Date().getTime();
+    let stop = false;
+
+    onProgress(action, item, 0.0);
+    let progressPromise = (async () => {
+        let now;
+        let targetTime = startTime + duration;
+
+        do {
+            now = new Date().getTime();
+            onProgress(action, item, (now - startTime) / duration);
+            await waitForFrame();
+        } while (!stop && now < targetTime);
+    })();
+
+    await Promise.race([progressPromise, workPromise]);
+    stop = true;
+    await progressPromise;
+}
+
 const FILE_MAGIC = 0xed26ff3a;
 
 const MAJOR_VERSION = 1;
@@ -247,6 +274,7 @@ function fromRaw(rawBuffer) {
  *
  * @param {Blob} blob - Blob containing the sparse image to split.
  * @param {number} splitSize - Maximum size per split.
+ * @yields {Object} Data of the next split image and its output size in bytes.
  */
 async function* splitBlob(blob, splitSize) {
     logDebug(
@@ -255,7 +283,10 @@ async function* splitBlob(blob, splitSize) {
     // Short-circuit if splitting isn't required
     if (blob.size <= splitSize) {
         logDebug("Blob fits in 1 payload, not splitting");
-        yield await readBlobAsBuffer(blob);
+        yield {
+            data: await readBlobAsBuffer(blob),
+            bytes: blob.size,
+        };
         return;
     }
 
@@ -268,6 +299,7 @@ async function* splitBlob(blob, splitSize) {
     blob = blob.slice(FILE_HEADER_SIZE);
 
     let splitChunks = [];
+    let splitDataBytes = 0;
     for (let i = 0; i < header.chunks; i++) {
         let chunkHeaderData = await readBlobAsBuffer(
             blob.slice(0, CHUNK_HEADER_SIZE)
@@ -286,6 +318,8 @@ async function* splitBlob(blob, splitSize) {
             // Read the chunk and add it
             logDebug("    Space is available, adding chunk");
             splitChunks.push(chunk);
+            // Track amount of data written on the output device, in bytes
+            splitDataBytes += chunk.blocks * header.blockSize;
         } else {
             // Out of space, finish this split
             // Blocks need to be calculated from chunk headers instead of going by size
@@ -309,7 +343,10 @@ async function* splitBlob(blob, splitSize) {
             logDebug(
                 `Finished ${splitImage.byteLength}-byte split with ${splitChunks.length} chunks`
             );
-            yield splitImage;
+            yield {
+                data: splitImage,
+                bytes: splitDataBytes,
+            };
 
             // Start a new split. Every split is considered a full image by the
             // bootloader, so we need to skip the *total* written blocks.
@@ -324,6 +361,7 @@ async function* splitBlob(blob, splitSize) {
                 },
                 chunk,
             ];
+            splitDataBytes = 0;
         }
     }
 
@@ -336,7 +374,10 @@ async function* splitBlob(blob, splitSize) {
         logDebug(
             `Finishing final ${splitImage.byteLength}-byte split with ${splitChunks.length} chunks`
         );
-        yield splitImage;
+        yield {
+            data: splitImage,
+            bytes: splitDataBytes,
+        };
     }
 }
 
@@ -668,13 +709,20 @@ class FastbootDevice {
     }
 
     /**
+     * Callback for progress updates while flashing or uploading an image.
+     *
+     * @callback ProgressCallback
+     * @param {number} progress - Progress within the current action between 0 and 1.
+     */
+
+    /**
      * Reads a raw command response from the bootloader.
      *
      * @private
      * @returns {response} Object containing response text and data size, if any.
      * @throws {FastbootError}
      */
-    async _sendRawPayload(buffer) {
+    async _sendRawPayload(buffer, onProgress) {
         let i = 0;
         let remainingBytes = buffer.byteLength;
         while (remainingBytes > 0) {
@@ -687,6 +735,12 @@ class FastbootDevice {
                     `  Sending ${chunk.byteLength} bytes to endpoint, ${remainingBytes} remaining, i=${i}`
                 );
             }
+            if (i % 10 === 0) {
+                onProgress(
+                    (buffer.byteLength - remainingBytes) / buffer.byteLength
+                );
+            }
+
             await this.device.transferOut(0x01, chunk);
 
             remainingBytes -= chunk.byteLength;
@@ -696,6 +750,7 @@ class FastbootDevice {
         logDebug(
             `Finished sending payload, ${remainingBytes} bytes remaining`
         );
+        onProgress(1.0);
     }
 
     /**
@@ -704,9 +759,10 @@ class FastbootDevice {
      *
      * @param {string} partition - Name of the partition the payload is intended for.
      * @param {ArrayBuffer} buffer - Buffer containing the data to upload.
+     * @param {ProgressCallback} onProgress - Callback for upload progress updates.
      * @throws {FastbootError}
      */
-    async upload(partition, buffer) {
+    async upload(partition, buffer, onProgress) {
         logDebug(
             `Uploading single sparse to ${partition}: ${buffer.byteLength} bytes`
         );
@@ -737,7 +793,7 @@ class FastbootDevice {
         }
 
         logDebug(`Sending payload: ${buffer.byteLength} bytes`);
-        await this._sendRawPayload(buffer);
+        await this._sendRawPayload(buffer, onProgress);
 
         logDebug("Payload sent, waiting for response...");
         await this._readResponse();
@@ -768,30 +824,30 @@ class FastbootDevice {
      *
      * @param {string} partition - The name of the partition to flash.
      * @param {Blob} blob - The Blob to retrieve data from.
+     * @param {ProgressCallback} onProgress - Callback for flashing progress updates.
      * @throws {FastbootError}
      */
-    async flashBlob(partition, blob) {
+    async flashBlob(partition, blob, onProgress = () => {}) {
         // Use current slot if partition is A/B
         if ((await this.getVariable(`has-slot:${partition}`)) === "yes") {
             partition += "_" + (await this.getVariable("current-slot"));
         }
 
         let maxDlSize = await this._getDownloadSize();
-
-        // Logical partitions need to be resized before flashing because they're
-        // sized perfectly to the payload.
         let fileHeader = await readBlobAsBuffer(
             blob.slice(0, FILE_HEADER_SIZE)
         );
-        if ((await this.getVariable(`is-logical:${partition}`)) === "yes") {
-            let totalBytes = 0;
-            if (isSparse(fileHeader)) {
-                let sparseHeader = parseFileHeader(fileHeader);
-                totalBytes = sparseHeader.blocks * sparseHeader.blockSize;
-            } else {
-                totalBytes = blob.size;
-            }
+        let totalBytes = 0;
+        if (isSparse(fileHeader)) {
+            let sparseHeader = parseFileHeader(fileHeader);
+            totalBytes = sparseHeader.blocks * sparseHeader.blockSize;
+        } else {
+            totalBytes = blob.size;
+        }
 
+        // Logical partitions need to be resized before flashing because they're
+        // sized perfectly to the payload.
+        if ((await this.getVariable(`is-logical:${partition}`)) === "yes") {
             // As per AOSP fastboot, we reset the partition to 0 bytes first
             // to optimize extent allocation.
             await this.runCommand(`resize-logical-partition:${partition}:0`);
@@ -816,13 +872,17 @@ class FastbootDevice {
             `Flashing ${blob.size} bytes to ${partition}, ${maxDlSize} bytes per split`
         );
         let splits = 0;
-        for await (let splitBuffer of splitBlob(blob, maxDlSize)) {
-            await this.upload(partition, splitBuffer);
+        let sentBytes = 0;
+        for await (let split of splitBlob(blob, maxDlSize)) {
+            await this.upload(partition, split.data, (progress) => {
+                onProgress((sentBytes + progress * split.bytes) / totalBytes);
+            });
 
             logDebug("Flashing payload...");
             await this.runCommand(`flash:${partition}`);
 
             splits += 1;
+            sentBytes += split.bytes;
         }
 
         logDebug(`Flashed ${partition} with ${splits} split(s)`);
@@ -3171,20 +3231,30 @@ const SYSTEM_IMAGES = [
 
 /** User-friendly action strings */
 const USER_ACTION_MAP = {
+    load: "Loading",
     unpack: "Unpacking",
     flash: "Flashing",
     wipe: "Wiping",
     reboot: "Restarting",
 };
 
+const BOOTLOADER_REBOOT_TIME = 3000; // ms
+const FASTBOOTD_REBOOT_TIME = 16000; // ms
+
 async function flashEntryBlob(device, entry, onProgress, partition) {
     logDebug(`Unpacking ${partition}`);
-    onProgress("unpack", partition);
-    let blob = await entry.getData(new BlobWriter("application/octet-stream"));
+    onProgress("unpack", partition, 0.0);
+    let blob = await entry.getData(new BlobWriter("application/octet-stream"), {
+        onprogress: (bytes, len) => {
+            onProgress("unpack", partition, bytes / len);
+        },
+    });
 
     logDebug(`Flashing ${partition}`);
-    onProgress("flash", partition);
-    await device.flashBlob(partition, blob);
+    onProgress("flash", partition, 0.0);
+    await device.flashBlob(partition, blob, (progress) => {
+        onProgress("flash", partition, progress);
+    });
 }
 
 async function tryFlashImages(device, entries, onProgress, imageNames) {
@@ -3240,6 +3310,7 @@ async function checkRequirements(device, androidInfo) {
  * @callback FactoryFlashCallback
  * @param {string} action - Action in the flashing process, e.g. unpack/flash.
  * @param {string} item - Item processed by the action, e.g. partition being flashed.
+ * @param {number} progress - Progress within the current action between 0 and 1.
  */
 
 /**
@@ -3261,6 +3332,7 @@ async function flashZip(
     onReconnect,
     onProgress = () => {}
 ) {
+    onProgress("load", "package", 0.0);
     let reader = new ZipReader$1(new BlobReader(blob));
     let entries = await reader.getEntries();
 
@@ -3271,13 +3343,23 @@ async function flashZip(
 
     // 1. Bootloader pack
     await tryFlashImages(device, entries, onProgress, ["bootloader"]);
-    onProgress("reboot", "device");
-    await device.reboot("bootloader", true, onReconnect);
+    await runWithTimedProgress(
+        onProgress,
+        "reboot",
+        "device",
+        BOOTLOADER_REBOOT_TIME,
+        device.reboot("bootloader", true, onReconnect)
+    );
 
     // 2. Radio pack
     await tryFlashImages(device, entries, onProgress, ["radio"]);
-    onProgress("reboot", "device");
-    await device.reboot("bootloader", true, onReconnect);
+    await runWithTimedProgress(
+        onProgress,
+        "reboot",
+        "device",
+        BOOTLOADER_REBOOT_TIME,
+        device.reboot("bootloader", true, onReconnect)
+    );
 
     // Cancel snapshot update if in progress
     let snapshotStatus = await device.getVariable("snapshot-update-status");
@@ -3287,9 +3369,13 @@ async function flashZip(
 
     // Load nested images for the following steps
     logDebug("Loading nested images from zip");
-    onProgress("unpack", "images");
+    onProgress("unpack", "images", 0.0);
     let entry = entries.find((e) => e.filename.match(/image-.+\.zip$/));
-    let imagesBlob = await entry.getData(new BlobWriter("application/zip"));
+    let imagesBlob = await entry.getData(new BlobWriter("application/zip"), {
+        onprogress: (bytes, len) => {
+            onProgress("unpack", "images", bytes / len);
+        },
+    });
     let imageReader = new ZipReader$1(new BlobReader(imagesBlob));
     let imageEntries = await imageReader.getEntries();
 
@@ -3312,14 +3398,20 @@ async function flashZip(
     // This is also where we reboot to fastbootd.
     entry = imageEntries.find((e) => e.filename === "super_empty.img");
     if (entry !== undefined) {
-        await device.reboot("fastboot", true, onReconnect);
+        await runWithTimedProgress(
+            onProgress,
+            "reboot",
+            "device",
+            FASTBOOTD_REBOOT_TIME,
+            device.reboot("fastboot", true, onReconnect)
+        );
 
         let superName = await device.getVariable("super-partition-name");
         if (!superName) {
             superName = "super";
         }
 
-        onProgress(wipe ? "wipe" : "flash", "super");
+        onProgress(wipe ? "wipe" : "flash", "super", 0.0);
         let superBlob = await entry.getData(
             new BlobWriter("application/octet-stream")
         );
@@ -3335,13 +3427,20 @@ async function flashZip(
     // 6. Remaining system images
     await tryFlashImages(device, imageEntries, onProgress, SYSTEM_IMAGES);
 
-    // 7. Custom AVB key
     // We unconditionally reboot back to the bootloader here if we're in fastbootd,
     // even when there's no custom AVB key, because common follow-up actions like
     // locking the bootloader and wiping data need to be done in the bootloader.
     if ((await device.getVariable("is-userspace")) === "yes") {
-        await device.reboot("bootloader", true, onReconnect);
+        await runWithTimedProgress(
+            onProgress,
+            "reboot",
+            "device",
+            BOOTLOADER_REBOOT_TIME,
+            device.reboot("bootloader", true, onReconnect)
+        );
     }
+
+    // 7. Custom AVB key
     entry = entries.find((e) => e.filename.endsWith("avb_pkmd.bin"));
     if (entry !== undefined) {
         await device.runCommand("erase:avb_custom_key");
@@ -3350,7 +3449,7 @@ async function flashZip(
 
     // 8. Wipe userdata
     if (wipe) {
-        onProgress("wipe", "data");
+        onProgress("wipe", "data", 0.0);
         await device.runCommand("erase:userdata");
     }
 }
