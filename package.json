@@ -2,7 +2,7 @@
     "name": "fastboot",
     "version": "0.1.0",
     "description": "JavaScript implementation of fastboot, using WebUSB",
-    "main": "lib/index.js",
+    "main": "dist/fastboot.cjs",
     "repository": "https://github.com/kdrag0n/fastboot.js",
     "author": "Danny Lin <danny@kdrag0n.dev>",
     "license": "MIT",
