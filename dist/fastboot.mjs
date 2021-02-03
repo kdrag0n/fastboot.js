@@ -3303,8 +3303,8 @@ async function checkRequirements(device, androidInfo) {
 
             // Check whether we recognize the partition
             if (
-                !BOOT_CRITICAL_IMAGES.includes(partition) &&
-                !SYSTEM_IMAGES.includes(partition)
+                !BOOT_CRITICAL_IMAGES.includes(expectValue) &&
+                !SYSTEM_IMAGES.includes(expectValue)
             ) {
                 throw new FastbootError(
                     "FAIL",
