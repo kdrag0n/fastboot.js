@@ -1,8 +1,6 @@
 # fastboot.js
 
-fastboot.js is an implementation of the [fastboot](https://android.googlesource.com/platform/system/core/+/master/fastboot/README.md) protocol in JavaScript. It runs in web browsers using the [WebUSB](https://wicg.github.io/webusb/) API, which is currently supported by Chrome.
-
-This work was funded by [GrapheneOS](https://grapheneos.org).
+fastboot.js is an implementation of the [fastboot](https://android.googlesource.com/platform/system/core/+/master/fastboot/README.md) protocol in JavaScript. It runs in web browsers by using the [WebUSB](https://wicg.github.io/webusb/) API, which is currently supported by Chrome.
 
 ## Why?
 
@@ -18,8 +16,11 @@ The following fastboot features are supported:
 
 - Running commands (erase, lock, unlock, getvar, reboot, etc.)
 - Flashing raw, bootloader, sparse, and custom AVB key images
-- Flashing AOSP factory image zips (update.zip)
+- Flashing AOSP factory image zips (update.zip), including firmware, logical partitions, and verified boot keys
 - Flashing images larger than the bootloader's maximum download size (by splitting sparse images)
+- Flashing logical partitions
+
+Detailed progress callbacks are also provided for many flashing steps.
 
 ## Example
 
