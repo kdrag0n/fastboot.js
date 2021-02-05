@@ -3327,6 +3327,16 @@ async function checkRequirements(device, androidInfo) {
     }
 }
 
+async function tryReboot(device, target, onReconnect) {
+    try {
+        await device.reboot(target, false);
+    } catch (e) {
+        /* Failed = device rebooted by itself */
+    }
+
+    await device.waitForConnect(onReconnect);
+}
+
 /**
  * Callback for reconnecting the USB device.
  * This is necessary because some platforms do not support automatic reconnection,
@@ -3380,7 +3390,7 @@ async function flashZip(
         "reboot",
         "device",
         BOOTLOADER_REBOOT_TIME,
-        device.reboot("bootloader", true, onReconnect)
+        tryReboot(device, "bootloader", onReconnect)
     );
 
     // 2. Radio pack
@@ -3390,7 +3400,7 @@ async function flashZip(
         "reboot",
         "device",
         BOOTLOADER_REBOOT_TIME,
-        device.reboot("bootloader", true, onReconnect)
+        tryReboot(device, "bootloader", onReconnect)
     );
 
     // Cancel snapshot update if in progress
@@ -3503,3 +3513,4 @@ var factory = /*#__PURE__*/Object.freeze({
 });
 
 export { factory as FactoryImages, FastbootDevice, FastbootError, UsbError, setDebugMode };
+//# sourceMappingURL=fastboot.mjs.map
