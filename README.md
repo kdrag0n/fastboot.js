@@ -22,6 +22,8 @@ The following fastboot features are supported:
 
 Detailed progress callbacks are also provided for many flashing steps.
 
-## Example
+## Examples
 
 A basic demo of fastboot.js can be found [here](https://kdrag0n.github.io/fastboot.js/demo/). The source code is included [in this repository](https://github.com/kdrag0n/fastboot.js/tree/master/demo).
+
+There is also a [user-friendly ROM installer](https://github.com/kdrag0n/android-webinstall) available, with a [live ProtonAOSP instance](https://protonaosp.kdrag0n.dev/install/web/) that can be used to flash devices officially supported by ProtonAOSP.
