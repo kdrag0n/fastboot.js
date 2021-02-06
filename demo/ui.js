@@ -6,8 +6,8 @@ import { BlobStore } from "./download.js";
 let device = new fastboot.FastbootDevice();
 let blobStore = new BlobStore();
 
-// Enable debug logging
-fastboot.setDebugMode(true);
+// Enable verbose debug logging
+fastboot.setDebugLevel(2);
 
 async function connectDevice() {
     let statusField = document.querySelector(".status-field");
