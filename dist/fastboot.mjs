@@ -3104,6 +3104,8 @@ class FastbootDevice {
                 this._connectResolve = null;
                 this._connectReject = null;
             }
+
+            this.device = null;
             throw error;
         }
 
