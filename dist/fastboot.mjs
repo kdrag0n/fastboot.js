@@ -3290,6 +3290,8 @@ class FastbootDevice {
             // what the spec says. Normalize it here.
             if (error instanceof FastbootError && error.status == "FAIL") {
                 resp = undefined;
+            } else {
+                throw error;
             }
         }
 
