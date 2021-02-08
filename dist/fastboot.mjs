@@ -3226,30 +3226,30 @@ class FastbootDevice {
             text: "",
             dataSize: null,
         };
-        let response;
+        let respStatus;
         do {
             let respPacket = await this.device.transferIn(0x01, 64);
-            response = new TextDecoder().decode(respPacket.data);
-            logDebug("response: packet", respPacket, "string", response);
+            let response = new TextDecoder().decode(respPacket.data);
 
-            if (response.startsWith("OKAY")) {
+            respStatus = response.substring(0, 4);
+            let respMessage = response.substring(4);
+            logDebug(`Response: ${respStatus} ${respMessage}`);
+
+            if (respStatus === "OKAY") {
                 // OKAY = end of response for this command
-                returnData.text += response.substring(4);
-            } else if (response.startsWith("INFO")) {
+                returnData.text += respMessage;
+            } else if (respStatus === "INFO") {
                 // INFO = additional info line
-                returnData.text += response.substring(4) + "\n";
-            } else if (response.startsWith("DATA")) {
-                // DATA = hex string, but it"s returned separately for safety
-                returnData.dataSize = response.substring(4);
+                returnData.text += respMessage + "\n";
+            } else if (respStatus === "DATA") {
+                // DATA = hex string, but it's returned separately for safety
+                returnData.dataSize = respMessage;
             } else {
                 // Assume FAIL or garbage data
-                throw new FastbootError(
-                    response.substring(0, 4),
-                    response.substring(4)
-                );
+                throw new FastbootError(respStatus, respMessage);
             }
             // INFO means that more packets are coming
-        } while (response.startsWith("INFO"));
+        } while (respStatus === "INFO");
 
         return returnData;
     }
@@ -3271,7 +3271,7 @@ class FastbootDevice {
         // Send raw UTF-8 command
         let cmdPacket = new TextEncoder("utf-8").encode(command);
         await this.device.transferOut(0x01, cmdPacket);
-        logDebug("command:", command);
+        logDebug("Command:", command);
 
         return this._readResponse();
     }
@@ -3366,7 +3366,6 @@ class FastbootDevice {
             i += 1;
         }
 
-        logDebug(`Finished sending payload`);
         onProgress(1.0);
     }
 
