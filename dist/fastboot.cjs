@@ -3051,7 +3051,11 @@ class FastbootDevice {
      * Returns whether the USB device is currently connected.
      */
     get isConnected() {
-        return this.device !== null;
+        return (
+            this.device !== null &&
+            this.device.opened &&
+            this.device.configurations[0].interfaces[0].claimed
+        );
     }
 
     /**
@@ -3059,7 +3063,7 @@ class FastbootDevice {
      *
      * @private
      */
-    async _validateAndConnectDevice() {
+    async _validateAndConnectDevice(rethrowErrors) {
         // Validate device
         let ife = this.device.configurations[0].interfaces[0].alternates[0];
         if (ife.endpoints.length !== 2) {
@@ -3103,14 +3107,17 @@ class FastbootDevice {
             await this.device.claimInterface(0); // fastboot
         } catch (error) {
             // Propagate exception from waitForConnect()
+            let rejected = false;
             if (this._connectReject !== null) {
                 this._connectReject(error);
                 this._connectResolve = null;
                 this._connectReject = null;
+                rejected = true;
             }
 
-            this.device = null;
-            throw error;
+            if (rethrowErrors && rejected) {
+                throw error;
+            }
         }
 
         // Return from waitForConnect()
@@ -3209,13 +3216,13 @@ class FastbootDevice {
             navigator.usb.addEventListener("connect", async (event) => {
                 logDebug("USB device connected");
                 this.device = event.device;
-                await this._validateAndConnectDevice();
+                await this._validateAndConnectDevice(false);
             });
 
             this._registeredUsbListeners = true;
         }
 
-        await this._validateAndConnectDevice();
+        await this._validateAndConnectDevice(true);
     }
 
     /**
