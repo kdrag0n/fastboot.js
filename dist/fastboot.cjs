@@ -17,7 +17,7 @@ function logVerbose(...data) {
 }
 
 /**
- * Changes the debug level for fastboot operations:
+ * Change the debug level for the fastboot client:
  *   - 0 = silent
  *   - 1 = debug, recommended for general use
  *   - 2 = verbose, for debugging only
@@ -2736,7 +2736,10 @@ const BOOT_CRITICAL_IMAGES = [
 // Less critical images to flash after boot-critical ones
 const SYSTEM_IMAGES = ["odm", "product", "system", "system_ext", "vendor"];
 
-/** User-friendly action strings */
+/**
+ * User-friendly action strings for factory image flashing progress.
+ * This can be indexed by the action argument in FactoryFlashCallback.
+ */
 const USER_ACTION_MAP = {
     load: "Loading",
     unpack: "Unpacking",
@@ -3012,7 +3015,9 @@ const DEFAULT_DOWNLOAD_SIZE = 512 * 1024 * 1024; // 512 MiB
 // max download size even if the bootloader can accept more data.
 const MAX_DOWNLOAD_SIZE = 1024 * 1024 * 1024; // 1 GiB
 
-/** Exception class for USB or WebUSB-level errors. */
+/**
+ * Exception class for USB errors not directly thrown by WebUSB.
+ */
 class UsbError extends Error {
     constructor(message) {
         super(message);
@@ -3020,7 +3025,10 @@ class UsbError extends Error {
     }
 }
 
-/** Exception class for bootloader and high-level fastboot errors. */
+/**
+ * Exception class for errors returned by the bootloader, as well as high-level
+ * fastboot errors resulting from bootloader responses.
+ */
 class FastbootError extends Error {
     constructor(status, message) {
         super(`Bootloader replied with ${status}: ${message}`);
@@ -3031,14 +3039,13 @@ class FastbootError extends Error {
 }
 
 /**
- * Implements fastboot commands and operations for a device connected over USB.
+ * This class is a client for executing fastboot commands and operations on a
+ * device connected over USB.
  */
 class FastbootDevice {
     /**
-     * Creates a new fastboot device object ready to connect to a USB device.
-     * This does not actually connect to any devices.
-     *
-     * @see connect
+     * Create a new fastboot device instance. This doesn't actually connect to
+     * any USB devices; call {@link connect} to do so.
      */
     constructor() {
         this.device = null;
@@ -3049,7 +3056,7 @@ class FastbootDevice {
     }
 
     /**
-     * Returns whether the USB device is currently connected.
+     * Returns whether a USB device is connected and ready for use.
      */
     get isConnected() {
         return (
@@ -3060,7 +3067,7 @@ class FastbootDevice {
     }
 
     /**
-     * Validates the current USB device's details and connects to it.
+     * Validate the current USB device's details and connect to it.
      *
      * @private
      */
@@ -3131,7 +3138,7 @@ class FastbootDevice {
 
     /**
      * Wait for the current USB device to disconnect, if it's still connected.
-     * This function returns immediately if no device is connected.
+     * Returns immediately if no device is connected.
      */
     async waitForDisconnect() {
         if (this.device === null) {
@@ -3144,7 +3151,7 @@ class FastbootDevice {
     }
 
     /**
-     * Callback for reconnecting the USB device.
+     * Callback for reconnecting to the USB device.
      * This is necessary because some platforms do not support automatic reconnection,
      * and USB connection requests can only be triggered as the result of explicit
      * user action.
@@ -3153,10 +3160,10 @@ class FastbootDevice {
      */
 
     /**
-     * Wait for the USB device to connect. This function returns at the next
-     * connection, regardless of whether the device is the same.
+     * Wait for the USB device to connect. Returns at the next connection,
+     * regardless of whether the connected USB device matches the previous one.
      *
-     * @param {ReconnectCallback} onReconnect - Callback to request device reconnection.
+     * @param {ReconnectCallback} onReconnect - Callback to request device reconnection on Android.
      */
     async waitForConnect(onReconnect = () => {}) {
         // On Android, we need to request the user to reconnect the device manually
@@ -3173,8 +3180,8 @@ class FastbootDevice {
     }
 
     /**
-     * Request the user to select a USB device and attempt to connect to it
-     * using the fastboot protocol.
+     * Request the user to select a USB device and connect to it using the
+     * fastboot protocol.
      *
      * @throws {UsbError}
      */
@@ -3227,7 +3234,7 @@ class FastbootDevice {
     }
 
     /**
-     * Reads a raw command response from the bootloader.
+     * Read a raw command response from the bootloader.
      *
      * @private
      * @returns {response} Object containing response text and data size, if any.
@@ -3267,7 +3274,7 @@ class FastbootDevice {
     }
 
     /**
-     * Sends a textual command to the bootloader.
+     * Send a textual command to the bootloader.
      * This is in raw fastboot format, not AOSP fastboot syntax.
      *
      * @param {string} command - The command to send.
@@ -3289,7 +3296,8 @@ class FastbootDevice {
     }
 
     /**
-     * Returns the value of a bootloader variable.
+     * Read the value of a bootloader variable. Returns undefined if the variable
+     * does not exist.
      *
      * @param {string} varName - The name of the variable to get.
      * @returns {value} Textual content of the variable.
@@ -3316,7 +3324,7 @@ class FastbootDevice {
     }
 
     /**
-     * Returns the maximum download size for a single payload, in bytes.
+     * Get the maximum download size for a single payload, in bytes.
      *
      * @private
      * @returns {downloadSize}
@@ -3343,15 +3351,13 @@ class FastbootDevice {
      * Callback for progress updates while flashing or uploading an image.
      *
      * @callback ProgressCallback
-     * @param {number} progress - Progress within the current action between 0 and 1.
+     * @param {number} progress - Progress for the current action, between 0 and 1.
      */
 
     /**
-     * Reads a raw command response from the bootloader.
+     * Send a raw data payload to the bootloader.
      *
      * @private
-     * @returns {response} Object containing response text and data size, if any.
-     * @throws {FastbootError}
      */
     async _sendRawPayload(buffer, onProgress) {
         let i = 0;
@@ -3382,7 +3388,7 @@ class FastbootDevice {
     }
 
     /**
-     * Uploads a payload to the bootloader for further use.
+     * Upload a payload to the bootloader for further use, e.g. for flashing.
      * Does not handle raw images, flashing, or splitting.
      *
      * @param {string} partition - Name of the partition the payload is intended for.
@@ -3428,8 +3434,8 @@ class FastbootDevice {
     }
 
     /**
-     * Reboots to the given target and waits for the device to reconnect, unless
-     * otherwise specified.
+     * Reboot to the given target, and optionally wait for the device to
+     * reconnect.
      *
      * @param {string} target - Where to reboot to, i.e. fastboot or bootloader.
      * @param {boolean} wait - Whether to wait for the device to reconnect.
@@ -3448,7 +3454,11 @@ class FastbootDevice {
     }
 
     /**
-     * Flashes the given File or Blob to the given partition on the device.
+     * Flash the given Blob to the given partition on the device. Any image
+     * format supported by the bootloader is allowed, e.g. sparse or raw images.
+     * Large raw images will be converted to sparse images automatically, and
+     * large sparse images will be split and flashed in multiple passes
+     * depending on the bootloader's payload size limit.
      *
      * @param {string} partition - The name of the partition to flash.
      * @param {Blob} blob - The Blob to retrieve data from.
@@ -3535,8 +3545,8 @@ class FastbootDevice {
      */
 
     /**
-     * Flashes the given factory images zip onto the device, with automatic handling
-     * of handling firmware, system, and logical partitions as AOSP fastboot and
+     * Flash the given factory images zip onto the device, with automatic handling
+     * of firmware, system, and logical partitions as AOSP fastboot and
      * flash-all.sh would do.
      * Equivalent to `fastboot update name.zip`.
      *
