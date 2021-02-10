@@ -22,6 +22,18 @@ The following fastboot features are supported:
 
 Detailed progress callbacks are also provided for many flashing steps.
 
+## Installation
+
+This library is available as a [package](https://www.npmjs.com/package/android-fastboot) on npm, so you can easily add it to your project:
+
+```bash
+# Using npm
+npm install --save android-fastboot
+
+# Using yarn
+yarn add android-fastboot
+```
+
 ## Examples
 
 A basic demo of fastboot.js can be found [here](https://kdrag0n.github.io/fastboot.js/demo/). The source code is included [in this repository](https://github.com/kdrag0n/fastboot.js/tree/master/demo).
