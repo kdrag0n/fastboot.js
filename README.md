@@ -2,6 +2,8 @@
 
 fastboot.js is an implementation of the Android [fastboot](https://android.googlesource.com/platform/system/core/+/master/fastboot/README.md) protocol in JavaScript. It runs in web browsers by using the [WebUSB](https://wicg.github.io/webusb/) API, which is currently supported by Chrome.
 
+If you're looking for a ready-to-use installer for custom ROMs, see [android-webinstall](https://github.com/kdrag0n/android-webinstall).
+
 ## Why?
 
 Many users, particularly those with less technical experience, have trouble flashing custom operating systems on Android devices. This is not necessarily their fault; there are many steps in the process that can go wrong. Broken or outdated Android platform tools, missed commands or steps, and many other factors can cause problems during flashing.
