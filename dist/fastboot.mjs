@@ -3209,7 +3209,6 @@ class FastbootDevice {
             navigator.usb.addEventListener("disconnect", (event) => {
                 if (event.device === this.device) {
                     logDebug("USB device disconnected");
-                    this.device = null;
                     if (this._disconnectResolve !== null) {
                         this._disconnectResolve();
                         this._disconnectResolve = null;
