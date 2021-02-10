@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title> Home</title>
+
+  <script src="https://cdn.jsdelivr.net/gh/google/code-prettify@master/loader/run_prettify.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="./build/entry.js"></script>
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+  <!--[if lt IE 9]>
+    <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+  <![endif]-->
+  <link href="https://fonts.googleapis.com/css?family=Roboto:100,400,700|Inconsolata,700" rel="stylesheet">
+  <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.6.3/css/all.css" integrity="sha384-UHRtZLI+pbxtHCWp1t77Bi1L4ZtiqrqD80Kn4Z8NTSRyMA2Fd33n5dQ8lWUE00s/" crossorigin="anonymous">
+  <link type="text/css" rel="stylesheet" href="https://jmblog.github.io/color-themes-for-google-code-prettify/themes/tomorrow-night.min.css">
+  <link type="text/css" rel="stylesheet" href="styles/app.min.css">
+  <link type="text/css" rel="stylesheet" href="styles/iframe.css">
+  <link type="text/css" rel="stylesheet" href="">
+  <script async defer src="https://buttons.github.io/buttons.js"></script>
+
+  
+</head>
+
+
+
+<body class="layout small-header">
+    <div id="stickyNavbarOverlay"></div>
+    
+
+<div class="top-nav">
+    <div class="inner">
+        <a id="hamburger" role="button" class="navbar-burger" aria-label="menu" aria-expanded="false">
+            <span aria-hidden="true"></span>
+            <span aria-hidden="true"></span>
+            <span aria-hidden="true"></span>
+        </a>
+        <div class="logo">
+            
+            
+        </div>
+        <div class="menu">
+            
+            <div class="navigation">
+                <a
+                    href="index.html"
+                    class="link"
+                >
+                    API Documentation
+                </a>
+                
+                
+                
+            </div>
+        </div>
+    </div>
+</div>
+    <div id="main">
+        <div
+            class="sidebar "
+            id="sidebarNav"
+        >
+            
+            <nav>
+                
+                    <h2><a href="index.html">Documentation</a></h2><div class="category"><h3>Classes</h3><ul><li><a href="FastbootDevice.html">FastbootDevice</a></li><li><a href="FastbootError.html">FastbootError</a></li><li><a href="UsbError.html">UsbError</a></li></ul><h3>Global</h3><ul><li><a href="global.html#setDebugLevel">setDebugLevel</a></li><li><a href="global.html#USER_ACTION_MAP">USER_ACTION_MAP</a></li></ul></div>
+                
+            </nav>
+        </div>
+        <div class="core" id="main-content-wrapper">
+            <div class="content">
+                <header class="page-title">
+                    <p></p>
+                    <h1>Home</h1>
+                </header>
+                
+
+
+
+    
+
+
+    <h3> </h3>
+
+
+
+
+
+
+
+
+
+
+    
+
+
+
+
+    <section>
+        <article><h1>fastboot.js</h1>
+<p>fastboot.js is an implementation of the <a href="https://android.googlesource.com/platform/system/core/+/master/fastboot/README.md">fastboot</a> protocol in JavaScript. It runs in web browsers by using the <a href="https://wicg.github.io/webusb/">WebUSB</a> API, which is currently supported by Chrome.</p>
+<h2>Why?</h2>
+<p>Many users, particularly those with less technical experience, have trouble flashing custom operating systems on Android devices. This is not necessarily their fault; there are many steps in the process that can go wrong. Broken or outdated Android platform tools, missed commands or steps, and many other factors can cause problems during flashing.</p>
+<p>WebUSB makes it possible to move most of the complexity into the browser, where the environment is much more controlled and most of the steps can be automated. This makes it easier for users to flash ROMs onto their devices and is more likely to result in success.</p>
+<p>Google's <a href="https://flash.android.com/welcome">Android Flash Tool</a> for AOSP CI images and Pixel factory images is already taking advantage of this, but unfortunately, it is proprietary and closed-source. Furthermore, it only supports flashing the aforementioned images from Google, so flashing custom ROMs with it is not possible. This is where fastboot.js comes in: it is an open-source library that can be used to create web installers for flashing anything.</p>
+<h2>Features</h2>
+<p>The following fastboot features are supported:</p>
+<ul>
+<li>Running commands (erase, lock, unlock, getvar, reboot, etc.)</li>
+<li>Flashing raw, bootloader, sparse, and custom AVB key images</li>
+<li>Flashing AOSP factory image zips (update.zip), including firmware, logical partitions, and verified boot keys</li>
+<li>Flashing images larger than the bootloader's maximum download size (by splitting sparse images)</li>
+<li>Flashing logical partitions</li>
+</ul>
+<p>Detailed progress callbacks are also provided for many flashing steps.</p>
+<h2>Examples</h2>
+<p>A basic demo of fastboot.js can be found <a href="https://kdrag0n.github.io/fastboot.js/demo/">here</a>. The source code is included <a href="https://github.com/kdrag0n/fastboot.js/tree/master/demo">in this repository</a>.</p>
+<p>There is also a <a href="https://github.com/kdrag0n/android-webinstall">user-friendly ROM installer</a> available, with a <a href="https://protonaosp.kdrag0n.dev/install/web/">live ProtonAOSP instance</a> that can be used to flash devices officially supported by ProtonAOSP.</p>
+<h2>Documentation</h2>
+<p>Documentation generated from JSDoc comments can be found <a href="https://">here</a></p></article>
+    </section>
+
+
+
+
+
+
+            </div>
+            
+            <footer class="footer">
+                <div class="content has-text-centered">
+                    <p>Documentation generated by <a href="https://github.com/jsdoc3/jsdoc">JSDoc 3.6.6</a></p>
+                    <p class="sidebar-created-by">
+                        <a href="https://github.com/SoftwareBrothers/better-docs" target="_blank">BetterDocs theme</a> provided with <i class="fas fa-heart"></i> by 
+                        <a href="http://softwarebrothers.co" target="_blank">SoftwareBrothers - JavaScript Development Agency</a>
+                    </p>
+                </div>
+            </footer>
+            
+        </div>
+        <div id="side-nav" class="side-nav">
+        </div>
+    </div>
+<script src="scripts/app.min.js"></script>
+<script>PR.prettyPrint();</script>
+<script src="scripts/linenumber.js"> </script>
+
+</body>
+</html>

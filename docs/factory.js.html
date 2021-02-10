@@ -1,0 +1,397 @@
+
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title> factory.js</title>
+
+  <script src="https://cdn.jsdelivr.net/gh/google/code-prettify@master/loader/run_prettify.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="./build/entry.js"></script>
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+  <!--[if lt IE 9]>
+    <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+  <![endif]-->
+  <link href="https://fonts.googleapis.com/css?family=Roboto:100,400,700|Inconsolata,700" rel="stylesheet">
+  <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.6.3/css/all.css" integrity="sha384-UHRtZLI+pbxtHCWp1t77Bi1L4ZtiqrqD80Kn4Z8NTSRyMA2Fd33n5dQ8lWUE00s/" crossorigin="anonymous">
+  <link type="text/css" rel="stylesheet" href="https://jmblog.github.io/color-themes-for-google-code-prettify/themes/tomorrow-night.min.css">
+  <link type="text/css" rel="stylesheet" href="styles/app.min.css">
+  <link type="text/css" rel="stylesheet" href="styles/iframe.css">
+  <link type="text/css" rel="stylesheet" href="">
+  <script async defer src="https://buttons.github.io/buttons.js"></script>
+
+  
+</head>
+
+
+
+<body class="layout small-header">
+    <div id="stickyNavbarOverlay"></div>
+    
+
+<div class="top-nav">
+    <div class="inner">
+        <a id="hamburger" role="button" class="navbar-burger" aria-label="menu" aria-expanded="false">
+            <span aria-hidden="true"></span>
+            <span aria-hidden="true"></span>
+            <span aria-hidden="true"></span>
+        </a>
+        <div class="logo">
+            
+            
+        </div>
+        <div class="menu">
+            
+            <div class="navigation">
+                <a
+                    href="index.html"
+                    class="link"
+                >
+                    API Documentation
+                </a>
+                
+                
+                
+            </div>
+        </div>
+    </div>
+</div>
+    <div id="main">
+        <div
+            class="sidebar "
+            id="sidebarNav"
+        >
+            
+            <nav>
+                
+                    <h2><a href="index.html">Documentation</a></h2><div class="category"><h3>Classes</h3><ul><li><a href="FastbootDevice.html">FastbootDevice</a></li><li><a href="FastbootError.html">FastbootError</a></li><li><a href="UsbError.html">UsbError</a></li></ul><h3>Global</h3><ul><li><a href="global.html#setDebugLevel">setDebugLevel</a></li><li><a href="global.html#USER_ACTION_MAP">USER_ACTION_MAP</a></li></ul></div>
+                
+            </nav>
+        </div>
+        <div class="core" id="main-content-wrapper">
+            <div class="content">
+                <header class="page-title">
+                    <p>Source</p>
+                    <h1>factory.js</h1>
+                </header>
+                
+
+
+
+    
+    <section>
+        <article>
+            <pre class="prettyprint source linenums"><code>import * as common from "./common.js";
+import { ZipReader, BlobReader, BlobWriter, TextWriter } from "@zip.js/zip.js";
+import { FastbootError } from "./fastboot.js";
+
+// Images needed for fastbootd
+const BOOT_CRITICAL_IMAGES = [
+    "boot",
+    "vendor_boot",
+    "dtbo",
+    "dt",
+    "vbmeta",
+    "vbmeta_system",
+];
+
+// Less critical images to flash after boot-critical ones
+const SYSTEM_IMAGES = ["odm", "product", "system", "system_ext", "vendor"];
+
+/** User-friendly action strings */
+export const USER_ACTION_MAP = {
+    load: "Loading",
+    unpack: "Unpacking",
+    flash: "Flashing",
+    wipe: "Wiping",
+    reboot: "Restarting",
+};
+
+const BOOTLOADER_REBOOT_TIME = 4000; // ms
+const FASTBOOTD_REBOOT_TIME = 16000; // ms
+const USERDATA_ERASE_TIME = 1000; // ms
+
+// Wrapper for Entry#getData() to unwrap ProgressEvent errors
+async function zipGetData(entry, writer, options = undefined) {
+    try {
+        return await entry.getData(writer, options);
+    } catch (e) {
+        if (e instanceof ProgressEvent &amp;&amp; e.type === "error") {
+            throw e.target.error;
+        } else {
+            throw e;
+        }
+    }
+}
+
+async function flashEntryBlob(device, entry, onProgress, partition) {
+    common.logDebug(`Unpacking ${partition}`);
+    onProgress("unpack", partition, 0.0);
+    let blob = await zipGetData(
+        entry,
+        new BlobWriter("application/octet-stream"),
+        {
+            onprogress: (bytes, len) => {
+                onProgress("unpack", partition, bytes / len);
+            },
+        }
+    );
+
+    common.logDebug(`Flashing ${partition}`);
+    onProgress("flash", partition, 0.0);
+    await device.flashBlob(partition, blob, (progress) => {
+        onProgress("flash", partition, progress);
+    });
+}
+
+async function tryFlashImages(device, entries, onProgress, imageNames) {
+    for (let imageName of imageNames) {
+        let pattern = new RegExp(`${imageName}(?:-.+)?\\.img$`);
+        let entry = entries.find((entry) => entry.filename.match(pattern));
+        if (entry !== undefined) {
+            await flashEntryBlob(device, entry, onProgress, imageName);
+        }
+    }
+}
+
+async function checkRequirements(device, androidInfo) {
+    // Deal with CRLF just in case
+    for (let line of androidInfo.replace("\r", "").split("\n")) {
+        let match = line.match(/^require\s+(.+?)=(.+)$/);
+        if (!match) {
+            continue;
+        }
+
+        let variable = match[1];
+        // Historical mismatch that we still need to deal with
+        if (variable === "board") {
+            variable = "product";
+        }
+
+        let expectValue = match[2];
+        let expectValues = expectValue.split("|");
+
+        // Special case: not a real variable at all
+        if (variable === "partition-exists") {
+            // Check whether the partition exists on the device:
+            // has-slot = undefined || FAIL => doesn't exist
+            // has-slot = yes || no         => exists
+            let hasSlot = await device.getVariable(`has-slot:${expectValue}`);
+            if (hasSlot !== "yes" &amp;&amp; hasSlot !== "no") {
+                throw new FastbootError(
+                    "FAIL",
+                    `Requirement ${variable}=${expectValue} failed, device lacks partition`
+                );
+            }
+
+            // Check whether we recognize the partition
+            if (
+                !BOOT_CRITICAL_IMAGES.includes(expectValue) &amp;&amp;
+                !SYSTEM_IMAGES.includes(expectValue)
+            ) {
+                throw new FastbootError(
+                    "FAIL",
+                    `Requirement ${variable}=${expectValue} failed, unrecognized partition`
+                );
+            }
+        } else {
+            let realValue = await device.getVariable(variable);
+
+            if (expectValues.includes(realValue)) {
+                common.logDebug(
+                    `Requirement ${variable}=${expectValue} passed`
+                );
+            } else {
+                let msg = `Requirement ${variable}=${expectValue} failed, value = ${realValue}`;
+                common.logDebug(msg);
+                throw new FastbootError("FAIL", msg);
+            }
+        }
+    }
+}
+
+async function tryReboot(device, target, onReconnect) {
+    try {
+        await device.reboot(target, false);
+    } catch (e) {
+        /* Failed = device rebooted by itself */
+    }
+
+    await device.waitForConnect(onReconnect);
+}
+
+export async function flashZip(
+    device,
+    blob,
+    wipe,
+    onReconnect,
+    onProgress = () => {}
+) {
+    onProgress("load", "package", 0.0);
+    let reader = new ZipReader(new BlobReader(blob));
+    let entries = await reader.getEntries();
+
+    // Bootloader and radio packs can only be flashed in the bare-metal bootloader
+    if ((await device.getVariable("is-userspace")) === "yes") {
+        await device.reboot("bootloader", true, onReconnect);
+    }
+
+    // 1. Bootloader pack
+    await tryFlashImages(device, entries, onProgress, ["bootloader"]);
+    await common.runWithTimedProgress(
+        onProgress,
+        "reboot",
+        "device",
+        BOOTLOADER_REBOOT_TIME,
+        tryReboot(device, "bootloader", onReconnect)
+    );
+
+    // 2. Radio pack
+    await tryFlashImages(device, entries, onProgress, ["radio"]);
+    await common.runWithTimedProgress(
+        onProgress,
+        "reboot",
+        "device",
+        BOOTLOADER_REBOOT_TIME,
+        tryReboot(device, "bootloader", onReconnect)
+    );
+
+    // Cancel snapshot update if in progress
+    let snapshotStatus = await device.getVariable("snapshot-update-status");
+    if (snapshotStatus !== undefined &amp;&amp; snapshotStatus !== "none") {
+        await device.runCommand("snapshot-update:cancel");
+    }
+
+    // Load nested images for the following steps
+    common.logDebug("Loading nested images from zip");
+    onProgress("unpack", "images", 0.0);
+    let entry = entries.find((e) => e.filename.match(/image-.+\.zip$/));
+    let imagesBlob = await zipGetData(
+        entry,
+        new BlobWriter("application/zip"),
+        {
+            onprogress: (bytes, len) => {
+                onProgress("unpack", "images", bytes / len);
+            },
+        }
+    );
+    let imageReader = new ZipReader(new BlobReader(imagesBlob));
+    let imageEntries = await imageReader.getEntries();
+
+    // 3. Check requirements
+    entry = imageEntries.find((e) => e.filename === "android-info.txt");
+    if (entry !== undefined) {
+        let reqText = await zipGetData(entry, new TextWriter());
+        await checkRequirements(device, reqText);
+    }
+
+    // 4. Boot-critical images
+    await tryFlashImages(
+        device,
+        imageEntries,
+        onProgress,
+        BOOT_CRITICAL_IMAGES
+    );
+
+    // 5. Super partition template
+    // This is also where we reboot to fastbootd.
+    entry = imageEntries.find((e) => e.filename === "super_empty.img");
+    if (entry !== undefined) {
+        await common.runWithTimedProgress(
+            onProgress,
+            "reboot",
+            "device",
+            FASTBOOTD_REBOOT_TIME,
+            device.reboot("fastboot", true, onReconnect)
+        );
+
+        let superName = await device.getVariable("super-partition-name");
+        if (!superName) {
+            superName = "super";
+        }
+
+        let superAction = wipe ? "wipe" : "flash";
+        onProgress(superAction, "super", 0.0);
+        let superBlob = await zipGetData(
+            entry,
+            new BlobWriter("application/octet-stream")
+        );
+        await device.upload(
+            superName,
+            await common.readBlobAsBuffer(superBlob),
+            (progress) => {
+                onProgress(superAction, "super", progress);
+            }
+        );
+        await device.runCommand(
+            `update-super:${superName}${wipe ? ":wipe" : ""}`
+        );
+    }
+
+    // 6. Remaining system images
+    await tryFlashImages(device, imageEntries, onProgress, SYSTEM_IMAGES);
+
+    // We unconditionally reboot back to the bootloader here if we're in fastbootd,
+    // even when there's no custom AVB key, because common follow-up actions like
+    // locking the bootloader and wiping data need to be done in the bootloader.
+    if ((await device.getVariable("is-userspace")) === "yes") {
+        await common.runWithTimedProgress(
+            onProgress,
+            "reboot",
+            "device",
+            BOOTLOADER_REBOOT_TIME,
+            device.reboot("bootloader", true, onReconnect)
+        );
+    }
+
+    // 7. Custom AVB key
+    entry = entries.find((e) => e.filename.endsWith("avb_pkmd.bin"));
+    if (entry !== undefined) {
+        await device.runCommand("erase:avb_custom_key");
+        await flashEntryBlob(device, entry, onProgress, "avb_custom_key");
+    }
+
+    // 8. Wipe userdata
+    if (wipe) {
+        await common.runWithTimedProgress(
+            onProgress,
+            "wipe",
+            "data",
+            USERDATA_ERASE_TIME,
+            device.runCommand("erase:userdata")
+        );
+    }
+}
+</code></pre>
+        </article>
+    </section>
+
+
+
+
+            </div>
+            
+            <footer class="footer">
+                <div class="content has-text-centered">
+                    <p>Documentation generated by <a href="https://github.com/jsdoc3/jsdoc">JSDoc 3.6.6</a></p>
+                    <p class="sidebar-created-by">
+                        <a href="https://github.com/SoftwareBrothers/better-docs" target="_blank">BetterDocs theme</a> provided with <i class="fas fa-heart"></i> by 
+                        <a href="http://softwarebrothers.co" target="_blank">SoftwareBrothers - JavaScript Development Agency</a>
+                    </p>
+                </div>
+            </footer>
+            
+        </div>
+        <div id="side-nav" class="side-nav">
+        </div>
+    </div>
+<script src="scripts/app.min.js"></script>
+<script>PR.prettyPrint();</script>
+<script src="scripts/linenumber.js"> </script>
+
+</body>
+</html>

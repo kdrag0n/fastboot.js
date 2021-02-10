@@ -1,0 +1,10 @@
+{
+    "opts": {
+        "destination": "./docs/",
+        "template": "node_modules/better-docs"
+    },
+    "source": {
+        "include": ["lib/", "README.md"],
+        "exclude": ["lib/sparse.js"]
+    }
+}

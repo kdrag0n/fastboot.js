@@ -33,6 +33,7 @@ function setDebugLevel(level) {
  *
  * @param {Blob} blob - Blob with the data to read.
  * @returns {buffer} ArrayBuffer containing data from the blob.
+ * @ignore
  */
 function readBlobAsBuffer(blob) {
     return new Promise((resolve, reject) => {
