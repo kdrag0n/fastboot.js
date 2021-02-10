@@ -102,7 +102,10 @@ const BOOT_CRITICAL_IMAGES = [
 // Less critical images to flash after boot-critical ones
 const SYSTEM_IMAGES = ["odm", "product", "system", "system_ext", "vendor"];
 
-/** User-friendly action strings */
+/**
+ * User-friendly action strings for factory image flashing progress.
+ * This can be indexed by the action argument in FactoryFlashCallback.
+ */
 export const USER_ACTION_MAP = {
     load: "Loading",
     unpack: "Unpacking",

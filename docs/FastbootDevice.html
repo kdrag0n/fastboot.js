@@ -87,7 +87,8 @@
     
         <h2><span class="attribs"><span class="type-signature"></span></span>FastbootDevice<span class="signature">()</span><span class="type-signature"></span></h2>
         
-            <div class="class-description">Implements fastboot commands and operations for a device connected over USB.</div>
+            <div class="class-description">This class is a client for executing fastboot commands and operations on a
+device connected over USB.</div>
         
     
 </header>
@@ -120,8 +121,8 @@
     
     
     <div class="description">
-        Creates a new fastboot device object ready to connect to a USB device.
-This does not actually connect to any devices.
+        Create a new fastboot device instance. This doesn't actually connect to
+any USB devices; call connect to do so.
     </div>
     
 
@@ -165,13 +166,6 @@ This does not actually connect to any devices.
     
 
     
-    <dt class="tag-see">See:</dt>
-    <dd class="tag-see">
-        <ul>
-            <li>connect</li>
-        </ul>
-    </dd>
-    
 
     
 
@@ -179,7 +173,7 @@ This does not actually connect to any devices.
         <p class="tag-source">
             <a href="fastboot.js.html" class="button">View Source</a>
             <span>
-                <a href="fastboot.js.html">fastboot.js</a>, <a href="fastboot.js.html#line37">line 37</a>
+                <a href="fastboot.js.html">fastboot.js</a>, <a href="fastboot.js.html#line43">line 43</a>
             </span>
         </p>
     
@@ -252,7 +246,7 @@ This does not actually connect to any devices.
 
 
 <div class="description">
-    Returns whether the USB device is currently connected.
+    Returns whether a USB device is connected and ready for use.
 </div>
 
 
@@ -294,7 +288,7 @@ This does not actually connect to any devices.
         <p class="tag-source">
             <a href="fastboot.js.html" class="button">View Source</a>
             <span>
-                <a href="fastboot.js.html">fastboot.js</a>, <a href="fastboot.js.html#line55">line 55</a>
+                <a href="fastboot.js.html">fastboot.js</a>, <a href="fastboot.js.html#line59">line 59</a>
             </span>
         </p>
     
@@ -337,8 +331,8 @@ This does not actually connect to any devices.
     
     
     <div class="description">
-        Request the user to select a USB device and attempt to connect to it
-using the fastboot protocol.
+        Request the user to select a USB device and connect to it using the
+fastboot protocol.
     </div>
     
 
@@ -389,7 +383,7 @@ using the fastboot protocol.
         <p class="tag-source">
             <a href="fastboot.js.html" class="button">View Source</a>
             <span>
-                <a href="fastboot.js.html">fastboot.js</a>, <a href="fastboot.js.html#line182">line 182</a>
+                <a href="fastboot.js.html">fastboot.js</a>, <a href="fastboot.js.html#line186">line 186</a>
             </span>
         </p>
     
@@ -461,7 +455,11 @@ using the fastboot protocol.
     
     
     <div class="description">
-        Flashes the given File or Blob to the given partition on the device.
+        Flash the given Blob to the given partition on the device. Any image
+format supported by the bootloader is allowed, e.g. sparse or raw images.
+Large raw images will be converted to sparse images automatically, and
+large sparse images will be split and flashed in multiple passes
+depending on the bootloader's payload size limit.
     </div>
     
 
@@ -613,7 +611,7 @@ using the fastboot protocol.
         <p class="tag-source">
             <a href="fastboot.js.html" class="button">View Source</a>
             <span>
-                <a href="fastboot.js.html">fastboot.js</a>, <a href="fastboot.js.html#line459">line 459</a>
+                <a href="fastboot.js.html">fastboot.js</a>, <a href="fastboot.js.html#line466">line 466</a>
             </span>
         </p>
     
@@ -685,8 +683,8 @@ using the fastboot protocol.
     
     
     <div class="description">
-        Flashes the given factory images zip onto the device, with automatic handling
-of handling firmware, system, and logical partitions as AOSP fastboot and
+        Flash the given factory images zip onto the device, with automatic handling
+of firmware, system, and logical partitions as AOSP fastboot and
 flash-all.sh would do.
 Equivalent to `fastboot update name.zip`.
     </div>
@@ -890,7 +888,7 @@ Equivalent to `fastboot update name.zip`.
         <p class="tag-source">
             <a href="fastboot.js.html" class="button">View Source</a>
             <span>
-                <a href="fastboot.js.html">fastboot.js</a>, <a href="fastboot.js.html#line550">line 550</a>
+                <a href="fastboot.js.html">fastboot.js</a>, <a href="fastboot.js.html#line557">line 557</a>
             </span>
         </p>
     
@@ -940,7 +938,8 @@ Equivalent to `fastboot update name.zip`.
     
     
     <div class="description">
-        Returns the value of a bootloader variable.
+        Read the value of a bootloader variable. Returns undefined if the variable
+does not exist.
     </div>
     
 
@@ -1042,7 +1041,7 @@ Equivalent to `fastboot update name.zip`.
         <p class="tag-source">
             <a href="fastboot.js.html" class="button">View Source</a>
             <span>
-                <a href="fastboot.js.html">fastboot.js</a>, <a href="fastboot.js.html#line299">line 299</a>
+                <a href="fastboot.js.html">fastboot.js</a>, <a href="fastboot.js.html#line304">line 304</a>
             </span>
         </p>
     
@@ -1139,8 +1138,8 @@ Equivalent to `fastboot update name.zip`.
     
     
     <div class="description">
-        Reboots to the given target and waits for the device to reconnect, unless
-otherwise specified.
+        Reboot to the given target, and optionally wait for the device to
+reconnect.
     </div>
     
 
@@ -1308,7 +1307,7 @@ otherwise specified.
         <p class="tag-source">
             <a href="fastboot.js.html" class="button">View Source</a>
             <span>
-                <a href="fastboot.js.html">fastboot.js</a>, <a href="fastboot.js.html#line439">line 439</a>
+                <a href="fastboot.js.html">fastboot.js</a>, <a href="fastboot.js.html#line442">line 442</a>
             </span>
         </p>
     
@@ -1358,7 +1357,7 @@ otherwise specified.
     
     
     <div class="description">
-        Sends a textual command to the bootloader.
+        Send a textual command to the bootloader.
 This is in raw fastboot format, not AOSP fastboot syntax.
     </div>
     
@@ -1461,7 +1460,7 @@ This is in raw fastboot format, not AOSP fastboot syntax.
         <p class="tag-source">
             <a href="fastboot.js.html" class="button">View Source</a>
             <span>
-                <a href="fastboot.js.html">fastboot.js</a>, <a href="fastboot.js.html#line278">line 278</a>
+                <a href="fastboot.js.html">fastboot.js</a>, <a href="fastboot.js.html#line282">line 282</a>
             </span>
         </p>
     
@@ -1558,7 +1557,7 @@ This is in raw fastboot format, not AOSP fastboot syntax.
     
     
     <div class="description">
-        Uploads a payload to the bootloader for further use.
+        Upload a payload to the bootloader for further use, e.g. for flashing.
 Does not handle raw images, flashing, or splitting.
     </div>
     
@@ -1711,7 +1710,7 @@ Does not handle raw images, flashing, or splitting.
         <p class="tag-source">
             <a href="fastboot.js.html" class="button">View Source</a>
             <span>
-                <a href="fastboot.js.html">fastboot.js</a>, <a href="fastboot.js.html#line394">line 394</a>
+                <a href="fastboot.js.html">fastboot.js</a>, <a href="fastboot.js.html#line397">line 397</a>
             </span>
         </p>
     
@@ -1783,8 +1782,8 @@ Does not handle raw images, flashing, or splitting.
     
     
     <div class="description">
-        Wait for the USB device to connect. This function returns at the next
-connection, regardless of whether the device is the same.
+        Wait for the USB device to connect. Returns at the next connection,
+regardless of whether the connected USB device matches the previous one.
     </div>
     
 
@@ -1838,7 +1837,7 @@ connection, regardless of whether the device is the same.
 
   
 
-  <td class="description last">Callback to request device reconnection.</td>
+  <td class="description last">Callback to request device reconnection on Android.</td>
 </tr>
 
 
@@ -1886,7 +1885,7 @@ connection, regardless of whether the device is the same.
         <p class="tag-source">
             <a href="fastboot.js.html" class="button">View Source</a>
             <span>
-                <a href="fastboot.js.html">fastboot.js</a>, <a href="fastboot.js.html#line162">line 162</a>
+                <a href="fastboot.js.html">fastboot.js</a>, <a href="fastboot.js.html#line166">line 166</a>
             </span>
         </p>
     
@@ -1937,7 +1936,7 @@ connection, regardless of whether the device is the same.
     
     <div class="description">
         Wait for the current USB device to disconnect, if it's still connected.
-This function returns immediately if no device is connected.
+Returns immediately if no device is connected.
     </div>
     
 
@@ -1988,7 +1987,7 @@ This function returns immediately if no device is connected.
         <p class="tag-source">
             <a href="fastboot.js.html" class="button">View Source</a>
             <span>
-                <a href="fastboot.js.html">fastboot.js</a>, <a href="fastboot.js.html#line137">line 137</a>
+                <a href="fastboot.js.html">fastboot.js</a>, <a href="fastboot.js.html#line141">line 141</a>
             </span>
         </p>
     

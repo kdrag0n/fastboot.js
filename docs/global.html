@@ -173,7 +173,8 @@
 
 
 <div class="description">
-    User-friendly action strings
+    User-friendly action strings for factory image flashing progress.
+This can be indexed by the action argument in FactoryFlashCallback.
 </div>
 
 
@@ -215,7 +216,7 @@
         <p class="tag-source">
             <a href="factory.js.html" class="button">View Source</a>
             <span>
-                <a href="factory.js.html">factory.js</a>, <a href="factory.js.html#line19">line 19</a>
+                <a href="factory.js.html">factory.js</a>, <a href="factory.js.html#line22">line 22</a>
             </span>
         </p>
     
@@ -254,7 +255,7 @@
     
     
     <div class="description">
-        Changes the debug level for fastboot operations:
+        Change the debug level for the fastboot client:
   - 0 = silent
   - 1 = debug, recommended for general use
   - 2 = verbose, for debugging only
@@ -566,7 +567,7 @@
         <p class="tag-source">
             <a href="fastboot.js.html" class="button">View Source</a>
             <span>
-                <a href="fastboot.js.html">fastboot.js</a>, <a href="fastboot.js.html#line529">line 529</a>
+                <a href="fastboot.js.html">fastboot.js</a>, <a href="fastboot.js.html#line536">line 536</a>
             </span>
         </p>
     
@@ -666,7 +667,7 @@
 
   
 
-  <td class="description last">Progress within the current action between 0 and 1.</td>
+  <td class="description last">Progress for the current action, between 0 and 1.</td>
 </tr>
 
 
@@ -714,7 +715,107 @@
         <p class="tag-source">
             <a href="fastboot.js.html" class="button">View Source</a>
             <span>
-                <a href="fastboot.js.html">fastboot.js</a>, <a href="fastboot.js.html#line343">line 343</a>
+                <a href="fastboot.js.html">fastboot.js</a>, <a href="fastboot.js.html#line348">line 348</a>
+            </span>
+        </p>
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</div>
+            
+                <div class="member">
+
+
+    
+    <h4 class="name" id="ReconnectCallback">
+        <a class="href-link" href="#ReconnectCallback">#</a>
+        
+        <span class="code-name">
+            
+                ReconnectCallback<span class="signature">()</span><span class="type-signature"></span>
+            
+        </span>
+    </h4>
+    
+
+    
+    
+    <div class="description">
+        Callback for reconnecting to the USB device.
+This is necessary because some platforms do not support automatic reconnection,
+and USB connection requests can only be triggered as the result of explicit
+user action.
+    </div>
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    
+
+    
+
+    
+
+    
+        <p class="tag-source">
+            <a href="fastboot.js.html" class="button">View Source</a>
+            <span>
+                <a href="fastboot.js.html">fastboot.js</a>, <a href="fastboot.js.html#line151">line 151</a>
             </span>
         </p>
     
@@ -814,107 +915,7 @@ user action.
         <p class="tag-source">
             <a href="fastboot.js.html" class="button">View Source</a>
             <span>
-                <a href="fastboot.js.html">fastboot.js</a>, <a href="fastboot.js.html#line147">line 147</a>
-            </span>
-        </p>
-    
-</dl>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-</div>
-            
-                <div class="member">
-
-
-    
-    <h4 class="name" id="ReconnectCallback">
-        <a class="href-link" href="#ReconnectCallback">#</a>
-        
-        <span class="code-name">
-            
-                ReconnectCallback<span class="signature">()</span><span class="type-signature"></span>
-            
-        </span>
-    </h4>
-    
-
-    
-    
-    <div class="description">
-        Callback for reconnecting the USB device.
-This is necessary because some platforms do not support automatic reconnection,
-and USB connection requests can only be triggered as the result of explicit
-user action.
-    </div>
-    
-
-
-
-
-
-
-
-
-
-
-
-
-
-<dl class="details">
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-    
-
-    
-
-    
-
-    
-        <p class="tag-source">
-            <a href="fastboot.js.html" class="button">View Source</a>
-            <span>
-                <a href="fastboot.js.html">fastboot.js</a>, <a href="fastboot.js.html#line520">line 520</a>
+                <a href="fastboot.js.html">fastboot.js</a>, <a href="fastboot.js.html#line527">line 527</a>
             </span>
         </p>
     
