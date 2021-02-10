@@ -84,7 +84,7 @@ async function flashFactoryZip(blob) {
             reconnectCallback,
             // Progress callback
             (action, item, progress) => {
-                let userAction = fastboot.FactoryImages.USER_ACTION_MAP[action];
+                let userAction = fastboot.USER_ACTION_MAP[action];
                 statusField.textContent = `${userAction} ${item}`;
                 progressBar.value = progress;
             }
