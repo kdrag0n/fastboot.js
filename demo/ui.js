@@ -78,8 +78,7 @@ async function flashFactoryZip(blob) {
     let progressBar = document.querySelector(".factory-progress-bar");
 
     try {
-        await fastboot.FactoryImages.flashZip(
-            device,
+        await device.flashFactoryZip(
             blob,
             false,
             reconnectCallback,
@@ -112,7 +111,7 @@ async function flashDownloadedFactoryZip() {
     await flashFactoryZip(blob);
 }
 
-fastboot.FactoryImages.configureZip({
+fastboot.configureZip({
     workerScripts: {
         inflate: ["../dist/vendor/z-worker-pako.js", "pako_inflate.min.js"],
     },
