@@ -81,6 +81,45 @@ async function runWithTimedProgress(
     onProgress(action, item, 1.0);
 }
 
+/** Exception class for operations that exceeded their timeout duration. */
+class TimeoutError extends Error {
+    constructor(timeout) {
+        super(`Timeout of ${timeout} ms exceeded`);
+        this.name = "TimeoutError";
+        this.timeout = timeout;
+    }
+}
+
+function runWithTimeout(promise, timeout) {
+    return new Promise((resolve, reject) => {
+        // Set up timeout
+        let timedOut = false;
+        let tid = setTimeout(() => {
+            // Set sentinel first to prevent race in promise resolving
+            timedOut = true;
+            reject(new TimeoutError(timeout));
+        }, timeout);
+
+        // Passthrough
+        promise
+            .then((val) => {
+                if (!timedOut) {
+                    resolve(val);
+                }
+            })
+            .catch((err) => {
+                if (!timedOut) {
+                    reject(err);
+                }
+            })
+            .finally(() => {
+                if (!timedOut) {
+                    clearTimeout(tid);
+                }
+            });
+    });
+}
+
 const FILE_MAGIC = 0xed26ff3a;
 
 const MAJOR_VERSION = 1;
@@ -3011,6 +3050,8 @@ const DEFAULT_DOWNLOAD_SIZE = 512 * 1024 * 1024; // 512 MiB
 // max download size even if the bootloader can accept more data.
 const MAX_DOWNLOAD_SIZE = 1024 * 1024 * 1024; // 1 GiB
 
+const GETVAR_TIMEOUT = 1000; // ms
+
 /**
  * Exception class for USB errors not directly thrown by WebUSB.
  */
@@ -3301,7 +3342,12 @@ class FastbootDevice {
     async getVariable(varName) {
         let resp;
         try {
-            resp = (await this.runCommand(`getvar:${varName}`)).text;
+            resp = (
+                await runWithTimeout(
+                    this.runCommand(`getvar:${varName}`),
+                    GETVAR_TIMEOUT
+                )
+            ).text;
         } catch (error) {
             // Some bootloaders return FAIL instead of empty responses, despite
             // what the spec says. Normalize it here.
@@ -3556,5 +3602,5 @@ class FastbootDevice {
     }
 }
 
-export { FastbootDevice, FastbootError, USER_ACTION_MAP, UsbError, configure as configureZip, setDebugLevel };
+export { FastbootDevice, FastbootError, TimeoutError, USER_ACTION_MAP, UsbError, configure as configureZip, setDebugLevel };
 //# sourceMappingURL=fastboot.mjs.map
