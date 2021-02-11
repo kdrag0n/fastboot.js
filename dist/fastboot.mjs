@@ -2778,7 +2778,7 @@ const SYSTEM_IMAGES = ["odm", "product", "system", "system_ext", "vendor"];
 const USER_ACTION_MAP = {
     load: "Loading",
     unpack: "Unpacking",
-    flash: "Flashing",
+    flash: "Writing",
     wipe: "Wiping",
     reboot: "Restarting",
 };
