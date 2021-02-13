@@ -66,7 +66,7 @@
             
             <nav>
                 
-                    <h2><a href="index.html">Documentation</a></h2><div class="category"><h3>Classes</h3><ul><li><a href="FastbootDevice.html">FastbootDevice</a></li><li><a href="FastbootError.html">FastbootError</a></li><li><a href="UsbError.html">UsbError</a></li></ul><h3>Global</h3><ul><li><a href="global.html#setDebugLevel">setDebugLevel</a></li><li><a href="global.html#USER_ACTION_MAP">USER_ACTION_MAP</a></li></ul></div>
+                    <h2><a href="index.html">Documentation</a></h2><div class="category"><h3>Classes</h3><ul><li><a href="FastbootDevice.html">FastbootDevice</a></li><li><a href="FastbootError.html">FastbootError</a></li><li><a href="TimeoutError.html">TimeoutError</a></li><li><a href="UsbError.html">UsbError</a></li></ul><h3>Global</h3><ul><li><a href="global.html#setDebugLevel">setDebugLevel</a></li><li><a href="global.html#USER_ACTION_MAP">USER_ACTION_MAP</a></li></ul></div>
                 
             </nav>
         </div>
@@ -102,6 +102,7 @@
     <section>
         <article><h1>fastboot.js</h1>
 <p>fastboot.js is an implementation of the Android <a href="https://android.googlesource.com/platform/system/core/+/master/fastboot/README.md">fastboot</a> protocol in JavaScript. It runs in web browsers by using the <a href="https://wicg.github.io/webusb/">WebUSB</a> API, which is currently supported by Chrome.</p>
+<p>If you're looking for a ready-to-use installer for custom ROMs, see <a href="https://github.com/kdrag0n/android-webinstall">android-webinstall</a>.</p>
 <h2>Why?</h2>
 <p>Many users, particularly those with less technical experience, have trouble flashing custom operating systems on Android devices. This is not necessarily their fault; there are many steps in the process that can go wrong. Broken or outdated Android platform tools, missed commands or steps, and many other factors can cause problems during flashing.</p>
 <p>WebUSB makes it possible to move most of the complexity into the browser, where the environment is much more controlled and most of the steps can be automated. This makes it easier for users to flash ROMs onto their devices and is more likely to result in success.</p>
@@ -126,7 +127,7 @@ yarn add android-fastboot
 </code></pre>
 <h2>Examples</h2>
 <p>A basic demo of fastboot.js can be found <a href="https://kdrag0n.github.io/fastboot.js/demo/">here</a>. The source code is included <a href="https://github.com/kdrag0n/fastboot.js/tree/master/demo">in this repository</a>.</p>
-<p>There is also a <a href="https://github.com/kdrag0n/android-webinstall">user-friendly ROM installer</a> available, with a <a href="https://protonaosp.kdrag0n.dev/install/web/">live ProtonAOSP instance</a> that can be used to flash devices officially supported by ProtonAOSP.</p>
+<p>There is also a <a href="https://github.com/kdrag0n/android-webinstall">user-friendly ROM installer</a> available, with a <a href="https://protonaosp.kdrag0n.dev/install/web/?utm_source=github-fastbootjs">live ProtonAOSP instance</a> that can be used to flash devices officially supported by ProtonAOSP.</p>
 <h2>Documentation</h2>
 <p>Documentation generated from JSDoc comments can be found <a href="https://kdrag0n.github.io/fastboot.js/docs/">here</a>.</p></article>
     </section>

@@ -68,7 +68,7 @@
             
             <nav>
                 
-                    <h2><a href="index.html">Documentation</a></h2><div class="category"><h3>Classes</h3><ul><li><a href="FastbootDevice.html">FastbootDevice</a></li><li><a href="FastbootError.html">FastbootError</a></li><li><a href="UsbError.html">UsbError</a></li></ul><h3>Global</h3><ul><li><a href="global.html#setDebugLevel">setDebugLevel</a></li><li><a href="global.html#USER_ACTION_MAP">USER_ACTION_MAP</a></li></ul></div>
+                    <h2><a href="index.html">Documentation</a></h2><div class="category"><h3>Classes</h3><ul><li><a href="FastbootDevice.html">FastbootDevice</a></li><li><a href="FastbootError.html">FastbootError</a></li><li><a href="TimeoutError.html">TimeoutError</a></li><li><a href="UsbError.html">UsbError</a></li></ul><h3>Global</h3><ul><li><a href="global.html#setDebugLevel">setDebugLevel</a></li><li><a href="global.html#USER_ACTION_MAP">USER_ACTION_MAP</a></li></ul></div>
                 
             </nav>
         </div>
@@ -99,6 +99,8 @@ const DEFAULT_DOWNLOAD_SIZE = 512 * 1024 * 1024; // 512 MiB
 // To conserve RAM and work around Chromium's ~2 GiB size limit, we limit the
 // max download size even if the bootloader can accept more data.
 const MAX_DOWNLOAD_SIZE = 1024 * 1024 * 1024; // 1 GiB
+
+const GETVAR_TIMEOUT = 1000; // ms
 
 /**
  * Exception class for USB errors not directly thrown by WebUSB.
@@ -298,7 +300,6 @@ export class FastbootDevice {
             navigator.usb.addEventListener("disconnect", (event) => {
                 if (event.device === this.device) {
                     common.logDebug("USB device disconnected");
-                    this.device = null;
                     if (this._disconnectResolve !== null) {
                         this._disconnectResolve();
                         this._disconnectResolve = null;
@@ -391,7 +392,12 @@ export class FastbootDevice {
     async getVariable(varName) {
         let resp;
         try {
-            resp = (await this.runCommand(`getvar:${varName}`)).text;
+            resp = (
+                await common.runWithTimeout(
+                    this.runCommand(`getvar:${varName}`),
+                    GETVAR_TIMEOUT
+                )
+            ).text;
         } catch (error) {
             // Some bootloaders return FAIL instead of empty responses, despite
             // what the spec says. Normalize it here.
