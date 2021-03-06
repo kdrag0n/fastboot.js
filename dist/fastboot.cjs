@@ -3156,15 +3156,13 @@ class FastbootDevice {
             await this.device.claimInterface(0); // fastboot
         } catch (error) {
             // Propagate exception from waitForConnect()
-            let rejected = false;
             if (this._connectReject !== null) {
                 this._connectReject(error);
                 this._connectResolve = null;
                 this._connectReject = null;
-                rejected = true;
             }
 
-            if (rethrowErrors && rejected) {
+            if (rethrowErrors) {
                 throw error;
             }
         }
@@ -3264,7 +3262,18 @@ class FastbootDevice {
             navigator.usb.addEventListener("connect", async (event) => {
                 logDebug("USB device connected");
                 this.device = event.device;
-                await this._validateAndConnectDevice(false);
+
+                // Check whether waitForConnect() is pending and save it for later
+                let hasPromiseReject = this._connectReject !== null;
+                try {
+                    await this._validateAndConnectDevice(false);
+                } catch (error) {
+                    // Only rethrow errors from the event handler if waitForConnect()
+                    // didn't already handle them
+                    if (!hasPromiseReject) {
+                        throw error;
+                    }
+                }
             });
 
             this._registeredUsbListeners = true;
