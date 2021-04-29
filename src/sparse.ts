@@ -23,10 +23,10 @@ export interface SparseSplit {
 }
 
 export enum ChunkType {
-    Raw = 0xCAC1,
-    Fill = 0xCAC2,
-    Skip = 0xCAC3,
-    Crc32 = 0xCAC4,
+    Raw = 0xcac1,
+    Fill = 0xcac2,
+    Skip = 0xcac3,
+    Crc32 = 0xcac4,
 }
 
 export interface SparseHeader {
@@ -42,7 +42,7 @@ export interface SparseChunk {
     blocks: number;
     dataBytes: number;
     data: ArrayBuffer | null; // to be populated by consumer
-};
+}
 
 /**
  * Returns a parsed version of the sparse image file header from the given buffer.

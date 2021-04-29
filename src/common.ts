@@ -64,7 +64,7 @@ export async function runWithTimedProgress<T>(
     action: string,
     item: string,
     duration: number,
-    workPromise: Promise<T>,
+    workPromise: Promise<T>
 ) {
     let startTime = new Date().getTime();
     let stop = false;
@@ -100,7 +100,10 @@ export class TimeoutError extends Error {
     }
 }
 
-export function runWithTimeout<T>(promise: Promise<T>, timeout: number): Promise<T> {
+export function runWithTimeout<T>(
+    promise: Promise<T>,
+    timeout: number
+): Promise<T> {
     return new Promise((resolve, reject) => {
         // Set up timeout
         let timedOut = false;
