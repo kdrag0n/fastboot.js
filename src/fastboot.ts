@@ -47,7 +47,7 @@ export class FastbootError extends Error {
 interface CommandResponse {
     text: string;
     // hex string from DATA
-    dataSize: string;
+    dataSize?: string;
 }
 
 /**
@@ -283,7 +283,9 @@ export class FastbootDevice {
      * @throws {FastbootError}
      */
     private async readResponse(): Promise<CommandResponse> {
-        let respData = {} as CommandResponse;
+        let respData = {
+            text: "",
+        } as CommandResponse;
         let respStatus;
 
         do {
@@ -457,13 +459,13 @@ export class FastbootDevice {
 
         // Check with the device and make sure size matches
         let downloadResp = await this.runCommand(`download:${xferHex}`);
-        if (downloadResp.dataSize === null) {
+        if (downloadResp.dataSize === undefined) {
             throw new FastbootError(
                 "FAIL",
                 `Unexpected response to download command: ${downloadResp.text}`
             );
         }
-        let downloadSize = parseInt(downloadResp.dataSize, 16);
+        let downloadSize = parseInt(downloadResp.dataSize!, 16);
         if (downloadSize !== buffer.byteLength) {
             throw new FastbootError(
                 "FAIL",
