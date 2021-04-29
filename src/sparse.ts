@@ -48,7 +48,7 @@ export interface SparseChunk {
  * Returns a parsed version of the sparse image file header from the given buffer.
  *
  * @param {ArrayBuffer} buffer - Raw file header data.
- * @returns {header} Object containing the header information.
+ * @returns {SparseHeader} Object containing the header information.
  */
 export function parseFileHeader(buffer: ArrayBuffer) {
     let view = new DataView(buffer);
@@ -169,7 +169,7 @@ function createImage(header: SparseHeader, chunks: Array<SparseChunk>) {
  * Creates a sparse image from buffer containing raw image data.
  *
  * @param {ArrayBuffer} rawBuffer - Buffer containing the raw image data.
- * @returns {sparseBuffer} Buffer containing the new sparse image.
+ * @returns {ArrayBuffer} Buffer containing the new sparse image.
  */
 export function fromRaw(rawBuffer: ArrayBuffer) {
     let header = {

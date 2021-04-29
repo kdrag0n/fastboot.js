@@ -276,7 +276,7 @@ export class FastbootDevice {
      * Read a raw command response from the bootloader.
      *
      * @private
-     * @returns {response} Object containing response text and data size, if any.
+     * @returns {Promise<CommandResponse>} Object containing response text and data size, if any.
      * @throws {FastbootError}
      */
     private async readResponse() {
@@ -311,11 +311,11 @@ export class FastbootDevice {
     }
 
     /**
-     * Send a textual command to the bootloader.
+     * Send a textual command to the bootloader and read the response.
      * This is in raw fastboot format, not AOSP fastboot syntax.
      *
      * @param {string} command - The command to send.
-     * @returns {response} Object containing response text and data size, if any.
+     * @returns {Promise<CommandResponse>} Object containing response text and data size, if any.
      * @throws {FastbootError}
      */
     async runCommand(command: string) {
@@ -337,7 +337,7 @@ export class FastbootDevice {
      * does not exist.
      *
      * @param {string} varName - The name of the variable to get.
-     * @returns {value} Textual content of the variable.
+     * @returns {Promise<string>} Textual content of the variable.
      * @throws {FastbootError}
      */
     async getVariable(varName: string) {
@@ -369,7 +369,7 @@ export class FastbootDevice {
      * Get the maximum download size for a single payload, in bytes.
      *
      * @private
-     * @returns {downloadSize}
+     * @returns {Promise<number>}
      * @throws {FastbootError}
      */
     private async getDownloadSize() {

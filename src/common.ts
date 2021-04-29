@@ -36,7 +36,7 @@ export function setDebugLevel(level: DebugLevel) {
  * Reads all of the data in the given blob and returns it as an ArrayBuffer.
  *
  * @param {Blob} blob - Blob with the data to read.
- * @returns {buffer} ArrayBuffer containing data from the blob.
+ * @returns {Promise<ArrayBuffer>} ArrayBuffer containing data from the blob.
  * @ignore
  */
 export function readBlobAsBuffer(blob: Blob): Promise<ArrayBuffer> {

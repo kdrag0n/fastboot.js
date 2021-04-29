@@ -63,7 +63,7 @@ export class BlobStore {
      * Downloads the file from the given URL and saves it to this BlobStore.
      *
      * @param {string} url - URL of the file to download.
-     * @returns {blob} Blob containing the downloaded data.
+     * @returns {Promise<Blob>} Blob containing the downloaded data.
      */
     async download(url) {
         let filename = url.split("/").pop();
