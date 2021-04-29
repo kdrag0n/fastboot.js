@@ -1,6 +1,16 @@
-import * as common from "./common.js";
+import * as common from "./common";
 import { ZipReader, BlobReader, BlobWriter, TextWriter } from "@zip.js/zip.js";
-import { FastbootError } from "./fastboot.js";
+import { FastbootDevice, FastbootError, ReconnectCallback } from "./fastboot";
+
+/**
+ * Callback for factory image flashing progress.
+ *
+ * @callback FactoryProgressCallback
+ * @param {string} action - Action in the flashing process, e.g. unpack/flash.
+ * @param {string} item - Item processed by the action, e.g. partition being flashed.
+ * @param {number} progress - Progress within the current action between 0 and 1.
+ */
+export type FactoryProgressCallback = (action: string, item: string, progress: number) => void;
 
 // Images needed for fastbootd
 const BOOT_CRITICAL_IMAGES = [
@@ -31,12 +41,12 @@ const BOOTLOADER_REBOOT_TIME = 4000; // ms
 const FASTBOOTD_REBOOT_TIME = 16000; // ms
 const USERDATA_ERASE_TIME = 1000; // ms
 
-// Wrapper for Entry#getData() to unwrap ProgressEvent errors
+// Wrapper for Entry#getData() that unwraps ProgressEvent errors
 async function zipGetData(entry, writer, options = undefined) {
     try {
         return await entry.getData(writer, options);
     } catch (e) {
-        if (e instanceof ProgressEvent && e.type === "error") {
+        if (e instanceof ProgressEvent && e.type === "error" && e.target !== null) {
             throw e.target.error;
         } else {
             throw e;
@@ -44,7 +54,7 @@ async function zipGetData(entry, writer, options = undefined) {
     }
 }
 
-async function flashEntryBlob(device, entry, onProgress, partition) {
+async function flashEntryBlob(device: FastbootDevice, entry, onProgress: FactoryProgressCallback, partition: string) {
     common.logDebug(`Unpacking ${partition}`);
     onProgress("unpack", partition, 0.0);
     let blob = await zipGetData(
@@ -64,7 +74,7 @@ async function flashEntryBlob(device, entry, onProgress, partition) {
     });
 }
 
-async function tryFlashImages(device, entries, onProgress, imageNames) {
+async function tryFlashImages(device: FastbootDevice, entries, onProgress: FactoryProgressCallback, imageNames: Array<string>) {
     for (let imageName of imageNames) {
         let pattern = new RegExp(`${imageName}(?:-.+)?\\.img$`);
         let entry = entries.find((entry) => entry.filename.match(pattern));
@@ -74,7 +84,7 @@ async function tryFlashImages(device, entries, onProgress, imageNames) {
     }
 }
 
-async function checkRequirements(device, androidInfo) {
+async function checkRequirements(device: FastbootDevice, androidInfo: string) {
     // Deal with CRLF just in case
     for (let line of androidInfo.replace("\r", "").split("\n")) {
         let match = line.match(/^require\s+(.+?)=(.+)$/);
@@ -89,7 +99,7 @@ async function checkRequirements(device, androidInfo) {
         }
 
         let expectValue = match[2];
-        let expectValues = expectValue.split("|");
+        let expectValues: Array<string | null> = expectValue.split("|");
 
         // Special case: not a real variable at all
         if (variable === "partition-exists") {
@@ -130,7 +140,7 @@ async function checkRequirements(device, androidInfo) {
     }
 }
 
-async function tryReboot(device, target, onReconnect) {
+async function tryReboot(device: FastbootDevice, target: string, onReconnect: ReconnectCallback) {
     try {
         await device.reboot(target, false);
     } catch (e) {
@@ -141,11 +151,11 @@ async function tryReboot(device, target, onReconnect) {
 }
 
 export async function flashZip(
-    device,
-    blob,
-    wipe,
-    onReconnect,
-    onProgress = () => {}
+    device: FastbootDevice,
+    blob: Blob,
+    wipe: boolean,
+    onReconnect: ReconnectCallback,
+    onProgress: FactoryProgressCallback = (action: string, item: string, progress: number) => {}
 ) {
     onProgress("load", "package", 0.0);
     let reader = new ZipReader(new BlobReader(blob));

@@ -12,6 +12,7 @@
     "devDependencies": {
         "@rollup/plugin-node-resolve": "^11.1.0",
         "@rollup/plugin-typescript": "^8.2.1",
+        "@types/w3c-web-usb": "^1.0.4",
         "better-docs": "^2.3.2",
         "eslint": "^7.18.0",
         "eslint-config-prettier": "^7.2.0",
