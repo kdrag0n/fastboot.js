@@ -431,7 +431,7 @@ export class FastbootDevice {
      * @param {FlashProgressCallback} onProgress - Callback for upload progress updates.
      * @throws {FastbootError}
      */
-    async upload(partition: string, buffer: ArrayBuffer, onProgress: FlashProgressCallback = (progress) => {}) {
+    async upload(partition: string, buffer: ArrayBuffer, onProgress: FlashProgressCallback = (_progress) => {}) {
         common.logDebug(
             `Uploading single sparse to ${partition}: ${buffer.byteLength} bytes`
         );
@@ -500,7 +500,7 @@ export class FastbootDevice {
      * @param {FlashProgressCallback} onProgress - Callback for flashing progress updates.
      * @throws {FastbootError}
      */
-    async flashBlob(partition: string, blob: Blob, onProgress: FlashProgressCallback = (progress) => {}) {
+    async flashBlob(partition: string, blob: Blob, onProgress: FlashProgressCallback = (_progress) => {}) {
         // Use current slot if partition is A/B
         if ((await this.getVariable(`has-slot:${partition}`)) === "yes") {
             partition += "_" + (await this.getVariable("current-slot"));
@@ -577,7 +577,7 @@ export class FastbootDevice {
      * @param {ReconnectCallback} onReconnect - Callback to request device reconnection.
      * @param {FactoryProgressCallback} onProgress - Progress callback for image flashing.
      */
-    async flashFactoryZip(blob: Blob, wipe: boolean, onReconnect: ReconnectCallback, onProgress: FactoryProgressCallback = (progress) => {}) {
+    async flashFactoryZip(blob: Blob, wipe: boolean, onReconnect: ReconnectCallback, onProgress: FactoryProgressCallback = (_progress) => {}) {
         return await flashFactoryZip(this, blob, wipe, onReconnect, onProgress);
     }
 }

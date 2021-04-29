@@ -155,7 +155,7 @@ export async function flashZip(
     blob: Blob,
     wipe: boolean,
     onReconnect: ReconnectCallback,
-    onProgress: FactoryProgressCallback = (action: string, item: string, progress: number) => {}
+    onProgress: FactoryProgressCallback = (_action: string, _item: string, _progress: number) => {}
 ) {
     onProgress("load", "package", 0.0);
     let reader = new ZipReader(new BlobReader(blob));
