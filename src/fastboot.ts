@@ -279,7 +279,7 @@ export class FastbootDevice {
      * @returns {Promise<CommandResponse>} Object containing response text and data size, if any.
      * @throws {FastbootError}
      */
-    private async readResponse() {
+    private async readResponse(): Promise<CommandResponse> {
         let respData = {} as CommandResponse;
         let respStatus;
 
@@ -318,7 +318,7 @@ export class FastbootDevice {
      * @returns {Promise<CommandResponse>} Object containing response text and data size, if any.
      * @throws {FastbootError}
      */
-    async runCommand(command: string) {
+    async runCommand(command: string): Promise<CommandResponse> {
         // Command and response length is always 64 bytes regardless of protocol
         if (command.length > 64) {
             throw new RangeError();
@@ -340,7 +340,7 @@ export class FastbootDevice {
      * @returns {Promise<string>} Textual content of the variable.
      * @throws {FastbootError}
      */
-    async getVariable(varName: string) {
+    async getVariable(varName: string): Promise<string | null> {
         let resp;
         try {
             resp = (
@@ -372,7 +372,7 @@ export class FastbootDevice {
      * @returns {Promise<number>}
      * @throws {FastbootError}
      */
-    private async getDownloadSize() {
+    private async getDownloadSize(): Promise<number> {
         try {
             let resp = (
                 await this.getVariable("max-download-size")
@@ -476,7 +476,7 @@ export class FastbootDevice {
      * @param {boolean} wait - Whether to wait for the device to reconnect.
      * @param {ReconnectCallback} onReconnect - Callback to request device reconnection, if wait is enabled.
      */
-    async reboot(target = "", wait = false, onReconnect = () => {}) {
+    async reboot(target: string = "", wait: boolean = false, onReconnect: ReconnectCallback = () => {}) {
         if (target.length > 0) {
             await this.runCommand(`reboot-${target}`);
         } else {
