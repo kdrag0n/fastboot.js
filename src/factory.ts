@@ -1,5 +1,5 @@
 import * as common from "./common";
-import { ZipReader, BlobReader, BlobWriter, TextWriter } from "@zip.js/zip.js";
+import { ZipReader, BlobReader, BlobWriter, TextWriter, Entry, Writer, GetDataOptions, ZipReaderOptions } from "@zip.js/zip.js";
 import { FastbootDevice, FastbootError, ReconnectCallback } from "./fastboot";
 
 /**
@@ -42,26 +42,26 @@ const FASTBOOTD_REBOOT_TIME = 16000; // ms
 const USERDATA_ERASE_TIME = 1000; // ms
 
 // Wrapper for Entry#getData() that unwraps ProgressEvent errors
-async function zipGetData(entry, writer, options = undefined) {
+async function zipGetData(entry: Entry, writer: Writer, options?: GetDataOptions | ZipReaderOptions) {
     try {
-        return await entry.getData(writer, options);
+        return await entry.getData!(writer, options);
     } catch (e) {
         if (e instanceof ProgressEvent && e.type === "error" && e.target !== null) {
-            throw e.target.error;
+            throw (e.target as any).error;
         } else {
             throw e;
         }
     }
 }
 
-async function flashEntryBlob(device: FastbootDevice, entry, onProgress: FactoryProgressCallback, partition: string) {
+async function flashEntryBlob(device: FastbootDevice, entry: Entry, onProgress: FactoryProgressCallback, partition: string) {
     common.logDebug(`Unpacking ${partition}`);
     onProgress("unpack", partition, 0.0);
     let blob = await zipGetData(
         entry,
         new BlobWriter("application/octet-stream"),
         {
-            onprogress: (bytes, len) => {
+            onprogress: (bytes: number, len: number) => {
                 onProgress("unpack", partition, bytes / len);
             },
         }
@@ -74,7 +74,7 @@ async function flashEntryBlob(device: FastbootDevice, entry, onProgress: Factory
     });
 }
 
-async function tryFlashImages(device: FastbootDevice, entries, onProgress: FactoryProgressCallback, imageNames: Array<string>) {
+async function tryFlashImages(device: FastbootDevice, entries: Array<Entry>, onProgress: FactoryProgressCallback, imageNames: Array<string>) {
     for (let imageName of imageNames) {
         let pattern = new RegExp(`${imageName}(?:-.+)?\\.img$`);
         let entry = entries.find((entry) => entry.filename.match(pattern));
@@ -197,10 +197,10 @@ export async function flashZip(
     onProgress("unpack", "images", 0.0);
     let entry = entries.find((e) => e.filename.match(/image-.+\.zip$/));
     let imagesBlob = await zipGetData(
-        entry,
+        entry!,
         new BlobWriter("application/zip"),
         {
-            onprogress: (bytes, len) => {
+            onprogress: (bytes: number, len: number) => {
                 onProgress("unpack", "images", bytes / len);
             },
         }
