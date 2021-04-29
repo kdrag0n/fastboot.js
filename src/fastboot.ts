@@ -77,10 +77,10 @@ export class FastbootDevice {
     epIn: number | null;
     epOut: number | null;
 
-    private registeredUsbListeners: boolean;
-    private connectResolve: ((value: any) => void) | null;
-    private connectReject: ((err: Error) => void) | null;
-    private disconnectResolve: ((value: any) => void) | null;
+    private _registeredUsbListeners: boolean;
+    private _connectResolve: ((value: any) => void) | null;
+    private _connectReject: ((err: Error) => void) | null;
+    private _disconnectResolve: ((value: any) => void) | null;
 
     /**
      * Create a new fastboot device instance. This doesn't actually connect to
@@ -90,10 +90,11 @@ export class FastbootDevice {
         this.device = null;
         this.epIn = null;
         this.epOut = null;
-        this.registeredUsbListeners = false;
-        this.connectResolve = null;
-        this.connectReject = null;
-        this.disconnectResolve = null;
+
+        this._registeredUsbListeners = false;
+        this._connectResolve = null;
+        this._connectReject = null;
+        this._disconnectResolve = null;
     }
 
     /**
@@ -112,7 +113,7 @@ export class FastbootDevice {
      *
      * @private
      */
-    private async validateAndConnectDevice() {
+    private async _validateAndConnectDevice() {
         if (this.device === null) {
             throw new UsbError("Attempted to connect to null device");
         }
@@ -160,20 +161,20 @@ export class FastbootDevice {
             await this.device!.claimInterface(0); // fastboot
         } catch (error) {
             // Propagate exception from waitForConnect()
-            if (this.connectReject !== null) {
-                this.connectReject(error);
-                this.connectResolve = null;
-                this.connectReject = null;
+            if (this._connectReject !== null) {
+                this._connectReject(error);
+                this._connectResolve = null;
+                this._connectReject = null;
             }
 
             throw error;
         }
 
         // Return from waitForConnect()
-        if (this.connectResolve !== null) {
-            this.connectResolve(undefined);
-            this.connectResolve = null;
-            this.connectReject = null;
+        if (this._connectResolve !== null) {
+            this._connectResolve(undefined);
+            this._connectResolve = null;
+            this._connectReject = null;
         }
     }
 
@@ -187,7 +188,7 @@ export class FastbootDevice {
         }
 
         return await new Promise((resolve, _reject) => {
-            this.disconnectResolve = resolve;
+            this._disconnectResolve = resolve;
         });
     }
 
@@ -206,8 +207,8 @@ export class FastbootDevice {
         }
 
         return await new Promise((resolve, reject) => {
-            this.connectResolve = resolve;
-            this.connectReject = reject;
+            this._connectResolve = resolve;
+            this._connectReject = reject;
         });
     }
 
@@ -241,13 +242,13 @@ export class FastbootDevice {
         }
         common.logDebug("Using USB device:", this.device);
 
-        if (!this.registeredUsbListeners) {
+        if (!this._registeredUsbListeners) {
             navigator.usb.addEventListener("disconnect", (event) => {
                 if (event.device === this.device) {
                     common.logDebug("USB device disconnected");
-                    if (this.disconnectResolve !== null) {
-                        this.disconnectResolve(undefined);
-                        this.disconnectResolve = null;
+                    if (this._disconnectResolve !== null) {
+                        this._disconnectResolve(undefined);
+                        this._disconnectResolve = null;
                     }
                 }
             });
@@ -257,9 +258,9 @@ export class FastbootDevice {
                 this.device = event.device;
 
                 // Check whether waitForConnect() is pending and save it for later
-                let hasPromiseReject = this.connectReject !== null;
+                let hasPromiseReject = this._connectReject !== null;
                 try {
-                    await this.validateAndConnectDevice();
+                    await this._validateAndConnectDevice();
                 } catch (error) {
                     // Only rethrow errors from the event handler if waitForConnect()
                     // didn't already handle them
@@ -269,10 +270,10 @@ export class FastbootDevice {
                 }
             });
 
-            this.registeredUsbListeners = true;
+            this._registeredUsbListeners = true;
         }
 
-        await this.validateAndConnectDevice();
+        await this._validateAndConnectDevice();
     }
 
     /**
@@ -282,7 +283,7 @@ export class FastbootDevice {
      * @returns {Promise<CommandResponse>} Object containing response text and data size, if any.
      * @throws {FastbootError}
      */
-    private async readResponse(): Promise<CommandResponse> {
+    private async _readResponse(): Promise<CommandResponse> {
         let respData = {
             text: "",
         } as CommandResponse;
@@ -334,7 +335,7 @@ export class FastbootDevice {
         await this.device!.transferOut(this.epOut!, cmdPacket);
         common.logDebug("Command:", command);
 
-        return this.readResponse();
+        return this._readResponse();
     }
 
     /**
@@ -377,7 +378,7 @@ export class FastbootDevice {
      * @returns {Promise<number>}
      * @throws {FastbootError}
      */
-    private async getDownloadSize(): Promise<number> {
+    private async _getDownloadSize(): Promise<number> {
         try {
             let resp = (await this.getVariable(
                 "max-download-size"
@@ -399,7 +400,7 @@ export class FastbootDevice {
      *
      * @private
      */
-    private async sendRawPayload(
+    private async _sendRawPayload(
         buffer: ArrayBuffer,
         onProgress: FlashProgressCallback
     ) {
@@ -474,10 +475,10 @@ export class FastbootDevice {
         }
 
         common.logDebug(`Sending payload: ${buffer.byteLength} bytes`);
-        await this.sendRawPayload(buffer, onProgress);
+        await this._sendRawPayload(buffer, onProgress);
 
         common.logDebug("Payload sent, waiting for response...");
-        await this.readResponse();
+        await this._readResponse();
     }
 
     /**
@@ -526,7 +527,7 @@ export class FastbootDevice {
             partition += "_" + (await this.getVariable("current-slot"));
         }
 
-        let maxDlSize = await this.getDownloadSize();
+        let maxDlSize = await this._getDownloadSize();
         let fileHeader = await common.readBlobAsBuffer(
             blob.slice(0, Sparse.FILE_HEADER_SIZE)
         );
