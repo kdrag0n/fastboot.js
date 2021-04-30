@@ -4,6 +4,7 @@ import * as fastboot from "../dist/fastboot.mjs";
 import { BlobStore } from "./download.js";
 
 let device = new fastboot.FastbootDevice();
+window.device = device;
 let blobStore = new BlobStore();
 
 // Enable verbose debug logging

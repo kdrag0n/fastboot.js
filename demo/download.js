@@ -1,5 +1,3 @@
-import * as common from "../lib/common.js";
-
 const DB_NAME = "BlobStore";
 const DB_VERSION = 1;
 
@@ -65,20 +63,20 @@ export class BlobStore {
      * Downloads the file from the given URL and saves it to this BlobStore.
      *
      * @param {string} url - URL of the file to download.
-     * @returns {blob} Blob containing the downloaded data.
+     * @returns {Promise<Blob>} Blob containing the downloaded data.
      */
     async download(url) {
         let filename = url.split("/").pop();
         let blob = await this.loadFile(filename);
         if (blob === null) {
-            common.logDebug(`Downloading ${url}`);
+            console.log(`Downloading ${url}`);
             let resp = await fetch(new Request(url));
             blob = await resp.blob();
-            common.logDebug("File downloaded, saving...");
+            console.log("File downloaded, saving...");
             await this.saveFile(filename, blob);
-            common.logDebug("File saved");
+            console.log("File saved");
         } else {
-            common.logDebug(
+            console.log(
                 `Loaded ${filename} from blob store, skipping download`
             );
         }

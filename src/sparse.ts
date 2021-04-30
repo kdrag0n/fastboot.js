@@ -1,4 +1,4 @@
-import * as common from "./common.js";
+import * as common from "./common";
 
 const FILE_MAGIC = 0xed26ff3a;
 
@@ -10,29 +10,47 @@ const CHUNK_HEADER_SIZE = 12;
 // AOSP libsparse uses 64 MiB chunks
 const RAW_CHUNK_SIZE = 64 * 1024 * 1024;
 
-const CHUNK_TYPE_RAW = 0xcac1;
-const CHUNK_TYPE_FILL = 0xcac2;
-const CHUNK_TYPE_SKIP = 0xcac3;
-
-const CHUNK_TYPE_MAP = new Map();
-CHUNK_TYPE_MAP.set(CHUNK_TYPE_RAW, "raw");
-CHUNK_TYPE_MAP.set(CHUNK_TYPE_FILL, "fill");
-CHUNK_TYPE_MAP.set(CHUNK_TYPE_SKIP, "skip");
-
 export class ImageError extends Error {
-    constructor(message) {
+    constructor(message: string) {
         super(message);
         this.name = "ImageError";
     }
+}
+
+export interface SparseSplit {
+    data: ArrayBuffer;
+    bytes: number;
+}
+
+export enum ChunkType {
+    Raw = 0xcac1,
+    Fill = 0xcac2,
+    Skip = 0xcac3,
+    Crc32 = 0xcac4,
+}
+
+export interface SparseHeader {
+    blockSize: number;
+    blocks: number;
+    chunks: number;
+    crc32: number;
+}
+
+export interface SparseChunk {
+    type: ChunkType;
+    /* 2: reserved, 16 bits */
+    blocks: number;
+    dataBytes: number;
+    data: ArrayBuffer | null; // to be populated by consumer
 }
 
 /**
  * Returns a parsed version of the sparse image file header from the given buffer.
  *
  * @param {ArrayBuffer} buffer - Raw file header data.
- * @returns {header} Object containing the header information.
+ * @returns {SparseHeader} Object containing the header information.
  */
-export function parseFileHeader(buffer) {
+export function parseFileHeader(buffer: ArrayBuffer): SparseHeader | null {
     let view = new DataView(buffer);
 
     let magic = view.getUint32(0, true);
@@ -73,39 +91,39 @@ export function parseFileHeader(buffer) {
     };
 }
 
-function parseChunkHeader(buffer) {
+function parseChunkHeader(buffer: ArrayBuffer) {
     let view = new DataView(buffer);
 
     // This isn't the same as what createImage takes.
     // Further processing needs to be done on the chunks.
     return {
-        type: CHUNK_TYPE_MAP.get(view.getUint16(0, true)),
+        type: view.getUint16(0, true),
         /* 2: reserved, 16 bits */
         blocks: view.getUint32(4, true),
         dataBytes: view.getUint32(8, true) - CHUNK_HEADER_SIZE,
         data: null, // to be populated by consumer
-    };
+    } as SparseChunk;
 }
 
-function calcChunksBlockSize(chunks) {
+function calcChunksBlockSize(chunks: Array<SparseChunk>) {
     return chunks
         .map((chunk) => chunk.blocks)
         .reduce((total, c) => total + c, 0);
 }
 
-function calcChunksDataSize(chunks) {
+function calcChunksDataSize(chunks: Array<SparseChunk>) {
     return chunks
-        .map((chunk) => chunk.data.byteLength)
+        .map((chunk) => chunk.data!.byteLength)
         .reduce((total, c) => total + c, 0);
 }
 
-function calcChunksSize(chunks) {
+function calcChunksSize(chunks: Array<SparseChunk>) {
     // 28-byte file header, 12-byte chunk headers
     let overhead = FILE_HEADER_SIZE + CHUNK_HEADER_SIZE * chunks.length;
     return overhead + calcChunksDataSize(chunks);
 }
 
-function createImage(header, chunks) {
+function createImage(header: SparseHeader, chunks: Array<SparseChunk>) {
     let buffer = new ArrayBuffer(calcChunksSize(chunks));
     let dataView = new DataView(buffer);
     let arrayView = new Uint8Array(buffer);
@@ -129,60 +147,31 @@ function createImage(header, chunks) {
 
     let chunkOff = FILE_HEADER_SIZE;
     for (let chunk of chunks) {
-        let typeMagic;
-        if (chunk.type === "raw") {
-            typeMagic = CHUNK_TYPE_RAW;
-        } else if (chunk.type === "fill") {
-            typeMagic = CHUNK_TYPE_FILL;
-        } else if (chunk.type === "skip") {
-            typeMagic = CHUNK_TYPE_SKIP;
-        } else {
-            // We don't support the undocumented 0xCAC4 CRC32 chunk type because
-            // it's unnecessary and very rarely used in practice.
-            throw new ImageError(`Invalid chunk type "${chunk.type}"`);
-        }
-
-        dataView.setUint16(chunkOff, typeMagic, true);
+        dataView.setUint16(chunkOff, chunk.type, true);
         dataView.setUint16(chunkOff + 2, 0, true); // reserved
         dataView.setUint32(chunkOff + 4, chunk.blocks, true);
         dataView.setUint32(
             chunkOff + 8,
-            CHUNK_HEADER_SIZE + chunk.data.byteLength,
+            CHUNK_HEADER_SIZE + chunk.data!.byteLength,
             true
         );
         chunkOff += CHUNK_HEADER_SIZE;
 
-        let chunkArrayView = new Uint8Array(chunk.data);
+        let chunkArrayView = new Uint8Array(chunk.data!);
         arrayView.set(chunkArrayView, chunkOff);
-        chunkOff += chunk.data.byteLength;
+        chunkOff += chunk.data!.byteLength;
     }
 
     return buffer;
 }
 
 /**
- * Checks whether the given buffer is a valid sparse image.
- *
- * @param {ArrayBuffer} buffer - Buffer containing the data to check.
- * @returns {valid} Whether the buffer is a valid sparse image.
- */
-export function isSparse(buffer) {
-    try {
-        let header = parseFileHeader(buffer);
-        return header !== null;
-    } catch (error) {
-        // ImageError = invalid
-        return false;
-    }
-}
-
-/**
  * Creates a sparse image from buffer containing raw image data.
  *
  * @param {ArrayBuffer} rawBuffer - Buffer containing the raw image data.
- * @returns {sparseBuffer} Buffer containing the new sparse image.
+ * @returns {ArrayBuffer} Buffer containing the new sparse image.
  */
-export function fromRaw(rawBuffer) {
+export function fromRaw(rawBuffer: ArrayBuffer): ArrayBuffer {
     let header = {
         blockSize: 4096,
         blocks: rawBuffer.byteLength / 4096,
@@ -194,10 +183,10 @@ export function fromRaw(rawBuffer) {
     while (rawBuffer.byteLength > 0) {
         let chunkSize = Math.min(rawBuffer.byteLength, RAW_CHUNK_SIZE);
         chunks.push({
-            type: "raw",
+            type: ChunkType.Raw,
             blocks: chunkSize / header.blockSize,
             data: rawBuffer.slice(0, chunkSize),
-        });
+        } as SparseChunk);
         rawBuffer = rawBuffer.slice(chunkSize);
     }
 
@@ -213,7 +202,7 @@ export function fromRaw(rawBuffer) {
  * @param {number} splitSize - Maximum size per split.
  * @yields {Object} Data of the next split image and its output size in bytes.
  */
-export async function* splitBlob(blob, splitSize) {
+export async function* splitBlob(blob: Blob, splitSize: number) {
     common.logDebug(
         `Splitting ${blob.size}-byte sparse image into ${splitSize}-byte chunks`
     );
@@ -223,7 +212,7 @@ export async function* splitBlob(blob, splitSize) {
         yield {
             data: await common.readBlobAsBuffer(blob),
             bytes: blob.size,
-        };
+        } as SparseSplit;
         return;
     }
 
@@ -231,11 +220,15 @@ export async function* splitBlob(blob, splitSize) {
         blob.slice(0, FILE_HEADER_SIZE)
     );
     let header = parseFileHeader(headerData);
+    if (header === null) {
+        throw new ImageError("Blob is not a sparse image");
+    }
+
     // Remove CRC32 (if present), otherwise splitting will invalidate it
     header.crc32 = 0;
     blob = blob.slice(FILE_HEADER_SIZE);
 
-    let splitChunks = [];
+    let splitChunks: Array<SparseChunk> = [];
     let splitDataBytes = 0;
     for (let i = 0; i < header.chunks; i++) {
         let chunkHeaderData = await common.readBlobAsBuffer(
@@ -263,9 +256,10 @@ export async function* splitBlob(blob, splitSize) {
             // because FILL and SKIP chunks cover more blocks than the data they contain.
             let splitBlocks = calcChunksBlockSize(splitChunks);
             splitChunks.push({
-                type: "skip",
+                type: ChunkType.Skip,
                 blocks: header.blocks - splitBlocks,
-                data: new ArrayBuffer(),
+                data: new ArrayBuffer(0),
+                dataBytes: 0,
             });
             common.logVerbose(
                 `Partition is ${
@@ -283,7 +277,7 @@ export async function* splitBlob(blob, splitSize) {
             yield {
                 data: splitImage,
                 bytes: splitDataBytes,
-            };
+            } as SparseSplit;
 
             // Start a new split. Every split is considered a full image by the
             // bootloader, so we need to skip the *total* written blocks.
@@ -292,9 +286,10 @@ export async function* splitBlob(blob, splitSize) {
             );
             splitChunks = [
                 {
-                    type: "skip",
+                    type: ChunkType.Skip,
                     blocks: splitBlocks,
-                    data: new ArrayBuffer(),
+                    data: new ArrayBuffer(0),
+                    dataBytes: 0,
                 },
                 chunk,
             ];
@@ -305,7 +300,7 @@ export async function* splitBlob(blob, splitSize) {
     // Finish the final split if necessary
     if (
         splitChunks.length > 0 &&
-        (splitChunks.length > 1 || splitChunks[0].type !== "skip")
+        (splitChunks.length > 1 || splitChunks[0].type !== ChunkType.Skip)
     ) {
         let splitImage = createImage(header, splitChunks);
         common.logDebug(
@@ -314,6 +309,6 @@ export async function* splitBlob(blob, splitSize) {
         yield {
             data: splitImage,
             bytes: splitDataBytes,
-        };
+        } as SparseSplit;
     }
 }
