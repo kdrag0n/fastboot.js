@@ -27,15 +27,25 @@ export type FactoryProgressCallback = (
 // Images needed for fastbootd
 const BOOT_CRITICAL_IMAGES = [
     "boot",
-    "vendor_boot",
-    "dtbo",
     "dt",
-    "vbmeta",
+    "dtbo",
+    "pvmfw",
+    "recovery",
     "vbmeta_system",
+    "vbmeta_vendor",
+    "vbmeta",
+    "vendor_boot",
 ];
 
 // Less critical images to flash after boot-critical ones
-const SYSTEM_IMAGES = ["odm", "product", "system", "system_ext", "vendor"];
+const SYSTEM_IMAGES = [
+    "odm",
+    "product",
+    "system_ext",
+    "system",
+    "vendor_dlkm",
+    "vendor",
+];
 
 /**
  * User-friendly action strings for factory image flashing progress.
