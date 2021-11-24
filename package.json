@@ -1,6 +1,6 @@
 {
     "name": "android-fastboot",
-    "version": "1.0.9",
+    "version": "1.0.10",
     "description": "JavaScript implementation of fastboot, using WebUSB",
     "main": "dist/fastboot.cjs",
     "repository": "https://github.com/kdrag0n/fastboot.js",
