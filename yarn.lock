@@ -330,10 +330,10 @@
   resolved "https://registry.yarnpkg.com/@types/w3c-web-usb/-/w3c-web-usb-1.0.5.tgz#90284d17f35de981670c85d29053ae8b88fa5543"
   integrity sha512-dYolx2XWesl1TMu+1BjtjU6eC6c2zZ2VDKhjU4f/mtR3+UBfMW6h1tPCQt7leY5Y8JBg0Fe/mMnoDMkPPNX9sw==
 
-"@zip.js/zip.js@^2.2.27":
-  version "2.3.19"
-  resolved "https://registry.yarnpkg.com/@zip.js/zip.js/-/zip.js-2.3.19.tgz#20d8b2654e6a7d1d7e1771d7be421be84451f292"
-  integrity sha512-dkqAdsgJPq7cR4iP5oIdI6Zu75WZka1L02NCYxdoXydsdNLO37A5YbBrVurTq5FxHDQRaH7S86rHdlxVeUl/dA==
+"@zip.js/zip.js@2.2.27":
+  version "2.2.27"
+  resolved "https://registry.yarnpkg.com/@zip.js/zip.js/-/zip.js-2.2.27.tgz#672c63fd586d83c6f6c6231a38b54a16b5abe267"
+  integrity sha512-lQLsq41xUIGJnUizICgjLL+1hrnlLcqyWnQcaNi8FdsxfJl8y0bqdolDit8o65Huai+/GwXbCODMVu05kNU8mA==
 
 acorn-globals@^3.0.0:
   version "3.1.0"
