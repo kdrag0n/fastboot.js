@@ -37,6 +37,15 @@ async function sendFormCommand(event) {
     inputField.value = "";
 }
 
+async function bootFormFile(event) {
+    event.preventDefault();
+
+    let fileField = document.querySelector(".boot-file");
+    let file = fileField.files[0];
+    await device.bootBlob(file);
+    fileField.value = "";
+}
+
 async function flashFormFile(event) {
     event.preventDefault();
 
@@ -124,6 +133,7 @@ document
 document
     .querySelector(".connect-button")
     .addEventListener("click", connectDevice);
+document.querySelector(".boot-form").addEventListener("submit", bootFormFile);
 document.querySelector(".flash-form").addEventListener("submit", flashFormFile);
 document
     .querySelector(".download-zip-button")
