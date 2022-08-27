@@ -122,7 +122,24 @@ async function tryFlashImages(
         let pattern = new RegExp(`${imageName}(?:-.+)?\\.img$`);
         let entry = entries.find((entry) => entry.filename.match(pattern));
         if (entry !== undefined) {
-            await flashEntryBlob(device, entry, onProgress, imageName);
+            if (imageName == "bootloader") {
+                let current_slot = await device.getVariable("current-slot");
+                if (current_slot == "a") {
+                    await flashEntryBlob(device, entry, onProgress, (imageName + "_b"));
+                    await device.runCommand("set_active:b");
+                } else if (current_slot == "b") {
+                    await flashEntryBlob(device, entry, onProgress, (imageName + "_a"));
+                    await device.runCommand("set_active:a");
+                } else {
+                    throw new FastbootError(
+                        "FAIL",
+                        `Invalid slot given by bootloader.`
+                    );
+                }
+            }
+            else {
+                await flashEntryBlob(device, entry, onProgress, imageName);
+            }
         }
     }
 }
@@ -217,7 +234,16 @@ export async function flashZip(
         await device.reboot("bootloader", true, onReconnect);
     }
 
-    // 1. Bootloader pack
+    // 1. Bootloader pack (repeated for slot A and B)
+    await tryFlashImages(device, entries, onProgress, ["bootloader"]);
+    await common.runWithTimedProgress(
+        onProgress,
+        "reboot",
+        "device",
+        BOOTLOADER_REBOOT_TIME,
+        tryReboot(device, "bootloader", onReconnect)
+    );
+
     await tryFlashImages(device, entries, onProgress, ["bootloader"]);
     await common.runWithTimedProgress(
         onProgress,
