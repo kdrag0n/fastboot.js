@@ -29,17 +29,20 @@ const BOOT_CRITICAL_IMAGES = [
     "boot",
     "dt",
     "dtbo",
+    "init_boot",
     "pvmfw",
     "recovery",
     "vbmeta_system",
     "vbmeta_vendor",
     "vbmeta",
     "vendor_boot",
+    "vendor_kernel_boot",
 ];
 
 // Less critical images to flash after boot-critical ones
 const SYSTEM_IMAGES = [
     "odm",
+    "odm_dlkm",
     "product",
     "system_ext",
     "system",
