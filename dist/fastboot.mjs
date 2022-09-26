@@ -7941,16 +7941,19 @@ const BOOT_CRITICAL_IMAGES = [
     "boot",
     "dt",
     "dtbo",
+    "init_boot",
     "pvmfw",
     "recovery",
     "vbmeta_system",
     "vbmeta_vendor",
     "vbmeta",
     "vendor_boot",
+    "vendor_kernel_boot",
 ];
 // Less critical images to flash after boot-critical ones
 const SYSTEM_IMAGES = [
     "odm",
+    "odm_dlkm",
     "product",
     "system_ext",
     "system",
@@ -8586,6 +8589,22 @@ class FastbootDevice {
             sentBytes += split.bytes;
         }
         logDebug(`Flashed ${partition} with ${splits} split(s)`);
+    }
+    /**
+     * Boot the given Blob on the device.
+     * Equivalent to `fastboot boot boot.img`.
+     *
+     * @param {Blob} blob - The Blob to retrieve data from.
+     * @param {FlashProgressCallback} onProgress - Callback for flashing progress updates.
+     * @throws {FastbootError}
+     */
+    async bootBlob(blob, onProgress = (_progress) => { }) {
+        logDebug(`Booting ${blob.size} bytes image`);
+        let data = await readBlobAsBuffer(blob);
+        await this.upload("boot.img", data, onProgress);
+        logDebug("Booting payload...");
+        await this.runCommand("boot");
+        logDebug(`Booted ${blob.size} bytes image`);
     }
     /**
      * Flash the given factory images zip onto the device, with automatic handling
