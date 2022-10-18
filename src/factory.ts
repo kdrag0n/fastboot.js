@@ -44,6 +44,7 @@ const SYSTEM_IMAGES = [
     "odm",
     "odm_dlkm",
     "product",
+    "system_dlkm",
     "system_ext",
     "system",
     "vendor_dlkm",
