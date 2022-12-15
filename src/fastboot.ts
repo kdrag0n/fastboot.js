@@ -559,12 +559,7 @@ export class FastbootDevice {
         // Convert image to sparse (for splitting) if it exceeds the size limit
         if (blob.size > maxDlSize && !isSparse) {
             common.logDebug(`${partition} image is raw, converting to sparse`);
-
-            // Assume that non-sparse images will always be small enough to convert in RAM.
-            // The buffer is converted to a Blob for compatibility with the existing flashing code.
-            let rawData = await common.readBlobAsBuffer(blob);
-            let sparse = Sparse.fromRaw(rawData);
-            blob = new Blob([sparse]);
+            blob = await Sparse.fromRaw(blob);
         }
 
         common.logDebug(

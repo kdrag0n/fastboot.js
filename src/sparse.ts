@@ -41,7 +41,25 @@ export interface SparseChunk {
     /* 2: reserved, 16 bits */
     blocks: number;
     dataBytes: number;
-    data: ArrayBuffer | null; // to be populated by consumer
+    data: Blob | null; // to be populated by consumer
+}
+
+class BlobBuilder {
+    private blob: Blob;
+    private type: string;
+
+    constructor(type: string = "") {
+        this.type = type;
+        this.blob = new Blob([], { type: this.type });
+    }
+
+    append(blob: Blob) {
+        this.blob = new Blob([this.blob, blob], { type: this.type });
+    }
+
+    getBlob(): Blob {
+        return this.blob;
+    }
 }
 
 /**
@@ -113,7 +131,7 @@ function calcChunksBlockSize(chunks: Array<SparseChunk>) {
 
 function calcChunksDataSize(chunks: Array<SparseChunk>) {
     return chunks
-        .map((chunk) => chunk.data!.byteLength)
+        .map((chunk) => chunk.data!.size)
         .reduce((total, c) => total + c, 0);
 }
 
@@ -123,8 +141,10 @@ function calcChunksSize(chunks: Array<SparseChunk>) {
     return overhead + calcChunksDataSize(chunks);
 }
 
-function createImage(header: SparseHeader, chunks: Array<SparseChunk>) {
-    let buffer = new ArrayBuffer(calcChunksSize(chunks));
+async function createImage(header: SparseHeader, chunks: Array<SparseChunk>): Promise<Blob> {
+    let blobBuilder = new BlobBuilder();
+
+    let buffer = new ArrayBuffer(FILE_HEADER_SIZE);
     let dataView = new DataView(buffer);
     let arrayView = new Uint8Array(buffer);
 
@@ -145,49 +165,52 @@ function createImage(header: SparseHeader, chunks: Array<SparseChunk>) {
     // 0xCAC4 chunk instead.
     dataView.setUint32(24, 0, true);
 
-    let chunkOff = FILE_HEADER_SIZE;
+    blobBuilder.append(new Blob([buffer]));
     for (let chunk of chunks) {
-        dataView.setUint16(chunkOff, chunk.type, true);
-        dataView.setUint16(chunkOff + 2, 0, true); // reserved
-        dataView.setUint32(chunkOff + 4, chunk.blocks, true);
+        buffer = new ArrayBuffer(CHUNK_HEADER_SIZE + chunk.data!.size);
+        dataView = new DataView(buffer);
+        arrayView = new Uint8Array(buffer);
+
+        dataView.setUint16(0, chunk.type, true);
+        dataView.setUint16(2, 0, true); // reserved
+        dataView.setUint32(4, chunk.blocks, true);
         dataView.setUint32(
-            chunkOff + 8,
-            CHUNK_HEADER_SIZE + chunk.data!.byteLength,
+            8,
+            CHUNK_HEADER_SIZE + chunk.data!.size,
             true
         );
-        chunkOff += CHUNK_HEADER_SIZE;
 
-        let chunkArrayView = new Uint8Array(chunk.data!);
-        arrayView.set(chunkArrayView, chunkOff);
-        chunkOff += chunk.data!.byteLength;
+        let chunkArrayView = new Uint8Array(await common.readBlobAsBuffer(chunk.data!));
+        arrayView.set(chunkArrayView, CHUNK_HEADER_SIZE);
+        blobBuilder.append(new Blob([buffer]));
     }
 
-    return buffer;
+    return blobBuilder.getBlob();
 }
 
 /**
  * Creates a sparse image from buffer containing raw image data.
  *
- * @param {ArrayBuffer} rawBuffer - Buffer containing the raw image data.
- * @returns {ArrayBuffer} Buffer containing the new sparse image.
+ * @param {Blob} blob - Blob containing the raw image data.
+ * @returns {Promise<Blob>} Promise that resolves the blob containing the new sparse image.
  */
-export function fromRaw(rawBuffer: ArrayBuffer): ArrayBuffer {
+export async function fromRaw(blob: Blob): Promise<Blob> {
     let header = {
         blockSize: 4096,
-        blocks: rawBuffer.byteLength / 4096,
+        blocks: blob.size / 4096,
         chunks: 1,
         crc32: 0,
     };
 
     let chunks = [];
-    while (rawBuffer.byteLength > 0) {
-        let chunkSize = Math.min(rawBuffer.byteLength, RAW_CHUNK_SIZE);
+    while (blob.size > 0) {
+        let chunkSize = Math.min(blob.size, RAW_CHUNK_SIZE);
         chunks.push({
             type: ChunkType.Raw,
             blocks: chunkSize / header.blockSize,
-            data: rawBuffer.slice(0, chunkSize),
+            data: blob.slice(0, chunkSize),
         } as SparseChunk);
-        rawBuffer = rawBuffer.slice(chunkSize);
+        blob = blob.slice(chunkSize);
     }
 
     return createImage(header, chunks);
@@ -235,9 +258,7 @@ export async function* splitBlob(blob: Blob, splitSize: number) {
             blob.slice(0, CHUNK_HEADER_SIZE)
         );
         let chunk = parseChunkHeader(chunkHeaderData);
-        chunk.data = await common.readBlobAsBuffer(
-            blob.slice(CHUNK_HEADER_SIZE, CHUNK_HEADER_SIZE + chunk.dataBytes)
-        );
+        chunk.data = blob.slice(CHUNK_HEADER_SIZE, CHUNK_HEADER_SIZE + chunk.dataBytes);
         blob = blob.slice(CHUNK_HEADER_SIZE + chunk.dataBytes);
 
         let bytesRemaining = splitSize - calcChunksSize(splitChunks);
@@ -258,7 +279,7 @@ export async function* splitBlob(blob: Blob, splitSize: number) {
             splitChunks.push({
                 type: ChunkType.Skip,
                 blocks: header.blocks - splitBlocks,
-                data: new ArrayBuffer(0),
+                data: new Blob([]),
                 dataBytes: 0,
             });
             common.logVerbose(
@@ -270,12 +291,12 @@ export async function* splitBlob(blob: Blob, splitSize: number) {
                     splitChunks
                 )} blocks`
             );
-            let splitImage = createImage(header, splitChunks);
+            let splitImage = await createImage(header, splitChunks);
             common.logDebug(
-                `Finished ${splitImage.byteLength}-byte split with ${splitChunks.length} chunks`
+                `Finished ${splitImage.size}-byte split with ${splitChunks.length} chunks`
             );
             yield {
-                data: splitImage,
+                data: await common.readBlobAsBuffer(splitImage),
                 bytes: splitDataBytes,
             } as SparseSplit;
 
@@ -288,7 +309,7 @@ export async function* splitBlob(blob: Blob, splitSize: number) {
                 {
                     type: ChunkType.Skip,
                     blocks: splitBlocks,
-                    data: new ArrayBuffer(0),
+                    data: new Blob([]),
                     dataBytes: 0,
                 },
                 chunk,
@@ -302,12 +323,12 @@ export async function* splitBlob(blob: Blob, splitSize: number) {
         splitChunks.length > 0 &&
         (splitChunks.length > 1 || splitChunks[0].type !== ChunkType.Skip)
     ) {
-        let splitImage = createImage(header, splitChunks);
+        let splitImage = await createImage(header, splitChunks);
         common.logDebug(
-            `Finishing final ${splitImage.byteLength}-byte split with ${splitChunks.length} chunks`
+            `Finishing final ${splitImage.size}-byte split with ${splitChunks.length} chunks`
         );
         yield {
-            data: splitImage,
+            data: await common.readBlobAsBuffer(splitImage),
             bytes: splitDataBytes,
         } as SparseSplit;
     }
