@@ -55,7 +55,11 @@ export function readBlobAsBuffer(blob: Blob): Promise<ArrayBuffer> {
 
 function waitForFrame() {
     return new Promise((resolve, _reject) => {
-        window.requestAnimationFrame(resolve);
+        if(typeof process !== 'undefined' && typeof process.nextTick === 'function') {
+            process.nextTick(resolve)
+        } else {
+            window.requestAnimationFrame(resolve);
+        }
     });
 }
 
