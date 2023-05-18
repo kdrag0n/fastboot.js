@@ -470,7 +470,7 @@ export class FastbootDevice {
         if (downloadSize !== buffer.byteLength) {
             throw new FastbootError(
                 "FAIL",
-                `Bootloader wants ${buffer.byteLength} bytes, requested to send ${buffer.byteLength} bytes`
+                `Bootloader wants ${downloadSize} bytes, requested to send ${buffer.byteLength} bytes`
             );
         }
 
