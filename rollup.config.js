@@ -28,5 +28,5 @@ export default {
             plugins: [terser()],
         },
     ],
-    plugins: [nodeResolve(), typescript()],
+    plugins: [ typescript(), nodeResolve()],
 };

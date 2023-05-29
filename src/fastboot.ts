@@ -159,7 +159,7 @@ export class FastbootDevice {
 
             await this.device!.selectConfiguration(1);
             await this.device!.claimInterface(0); // fastboot
-        } catch (error) {
+        } catch (error: any) {
             // Propagate exception from waitForConnect()
             if (this._connectReject !== null) {
                 this._connectReject(error);
