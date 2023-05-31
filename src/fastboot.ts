@@ -385,7 +385,7 @@ export class FastbootDevice {
             ))!.toLowerCase();
             if (resp) {
                 // AOSP fastboot requires hex
-                return Math.min(parseInt(resp, 16), MAX_DOWNLOAD_SIZE);
+                return Math.min(parseInt(resp, 10), MAX_DOWNLOAD_SIZE);
             }
         } catch (error) {
             /* Failed = no value, fallthrough */

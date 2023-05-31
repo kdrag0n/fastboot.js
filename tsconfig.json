@@ -14,7 +14,8 @@
         "declaration": true,
         // go to js file when using IDE functions like
         // "Go to Definition" in VSCode
-        "declarationMap": true
+        "declarationMap": true,
+        "types": ["@types/w3c-web-usb"],
     },
     "include": ["./src/**/*"]
 }

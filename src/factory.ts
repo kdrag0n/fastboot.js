@@ -345,3 +345,160 @@ export async function flashZip(
         );
     }
 }
+
+export async function flashArkZip(
+    device: FastbootDevice,
+    blob: Blob,
+) {
+
+    const reader = new ZipReader(new BlobReader(blob));
+    const entries = await reader.getEntries();
+
+    for (let entry of entries) {
+        console.log(entry.filename);
+        console.log(entry);
+    }
+
+    // figure out the active partition
+    const activeSlot = await device.getVariable("current-slot");
+
+    if(activeSlot === null) {
+        throw new Error("Unable to determine active slot");
+    }
+
+    const inactiveSlot = activeSlot === "a" ? "b" : "a";
+    const inactiveSlotSuffix = activeSlot === "a" ? "_b" : "_a";
+
+    console.log(`active slot: ${activeSlot}`);
+
+    // boot.img
+    const bootEntry = entries.find((e) => e.filename.includes("boot.img"));
+    console.log(`bootEntry: ${bootEntry?.filename}`);
+
+    if (bootEntry == undefined) {
+        throw new Error("boot.img not found in zip");
+    }
+
+    // dtbo.img
+    const dtboEntry = entries.find((e) => e.filename.includes("dtbo.img"));
+    console.log(`dtboEntry: ${dtboEntry?.filename}`);
+
+    if (dtboEntry == undefined) {
+        throw new Error("dtbo.img not found in zip");
+    }
+
+    // system.img
+    const systemEntry = entries.find((e) => e.filename.includes("system.img"));
+    console.log(`systemEntry: ${systemEntry?.filename}`);
+
+    if (systemEntry == undefined) {
+        throw new Error("system.img not found in zip");
+    }
+
+    // vendor.img
+    const vendorEntry = entries.find((e) => e.filename.includes("vendor.img"));
+    console.log(`vendorEntry: ${vendorEntry?.filename}`);
+
+    if (vendorEntry == undefined) {
+        throw new Error("vendor.img not found in zip");
+    }
+
+    // vbmeta.img
+    const vbmetaEntry = entries.find((e) => e.filename.includes("vbmeta.img"));
+    console.log(`vbmetaEntry: ${vbmetaEntry?.filename}`);
+
+    if (vbmetaEntry == undefined) {
+        throw new Error("vbmeta.img not found in zip");
+    }
+
+    // persist.img
+    const persistEntry = entries.find((e) => e.filename.includes("persist.img"));
+    console.log(`persistEntry: ${persistEntry?.filename}`);
+
+    if (persistEntry == undefined) {
+        throw new Error("persist.img not found in zip");
+    }
+
+    // userdata.img
+    const userdataEntry = entries.find((e) => e.filename.includes("userdata.img"));
+    console.log(`userdataEntry: ${userdataEntry?.filename}`);
+
+    if (userdataEntry == undefined) {
+        throw new Error("userdata.img not found in zip");
+    }
+
+    console.log(`flashing boot${inactiveSlotSuffix}`);
+    await flashEntryBlob(
+        device,
+        bootEntry,
+        (action, partition, progress) => {
+            // console.log(`${action} ${partition} ${progress}`);
+        },
+        `boot${inactiveSlotSuffix}`
+    )
+    //
+    console.log(`flashing dtbo${inactiveSlotSuffix}`);
+    await flashEntryBlob(
+        device,
+        dtboEntry,
+        (action, partition, progress) => {
+            // console.log(`${action} ${partition} ${progress}`);
+        },
+        `dtbo${inactiveSlotSuffix}`
+    )
+
+    console.log(`flashing system${inactiveSlotSuffix}`);
+    await flashEntryBlob(
+        device,
+        systemEntry,
+        (action, partition, progress) => {
+            // console.log(`${action} ${partition} ${progress}`);
+        },
+        `system${inactiveSlotSuffix}`
+    )
+
+    console.log(`flashing vendor${inactiveSlotSuffix}`);
+    await flashEntryBlob(
+        device,
+        vendorEntry,
+        (action, partition, progress) => {
+            // console.log(`${action} ${partition} ${progress}`);
+        },
+        `vendor${inactiveSlotSuffix}`
+    )
+
+    console.log(`flashing vbmeta${inactiveSlotSuffix}`);
+    await flashEntryBlob(
+        device,
+        vbmetaEntry,
+        (action, partition, progress) => {
+            // console.log(`${action} ${partition} ${progress}`);
+        },
+        `vbmeta${inactiveSlotSuffix}`
+    )
+
+    console.log(`flashing persist`);
+    await flashEntryBlob(
+        device,
+        persistEntry,
+        (action, partition, progress) => {
+            // console.log(`${action} ${partition} ${progress}`);
+        },
+        `persist`
+    )
+
+    console.log(`flashing userdata`);
+    await flashEntryBlob(
+        device,
+        userdataEntry,
+        (action, partition, progress) => {
+            // console.log(`${action} ${partition} ${progress}`);
+        },
+        `userdata`
+    )
+
+    await device.runCommand("set_active:" + inactiveSlot);
+
+    await device.reboot()
+
+}
