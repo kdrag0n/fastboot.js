@@ -1,5 +1,5 @@
 {
-    "name": "@Almer-Technologies/android-fastboot",
+    "name": "@almer-technologies/android-fastboot",
     "version": "1.1.3",
     "description": "JavaScript implementation of fastboot, using WebUSB",
     "main": "dist/fastboot.cjs",
