@@ -243,34 +243,42 @@ export class FastbootDevice {
         common.logDebug("Using USB device:", this.device);
 
         if (!this._registeredUsbListeners) {
-            navigator.usb.addEventListener("disconnect", (event) => {
-                if (event.device === this.device) {
-                    common.logDebug("USB device disconnected");
-                    if (this._disconnectResolve !== null) {
-                        this._disconnectResolve(undefined);
-                        this._disconnectResolve = null;
-                    }
-                }
-            });
+            /*
+            * Don't think we need these listeners, it interferes with the USB navigator
+            * when the glasses start in user mode; since the serial is the same, these
+            * listeners would try to establish a fastboot connection and fail
+            *
+            * We can simply call connect() again to establish a new fastboot connection
+             */
 
-            navigator.usb.addEventListener("connect", async (event) => {
-                common.logDebug("USB device connected");
-                this.device = event.device;
-
-                // Check whether waitForConnect() is pending and save it for later
-                let hasPromiseReject = this._connectReject !== null;
-                try {
-                    await this._validateAndConnectDevice();
-                } catch (error) {
-                    // Only rethrow errors from the event handler if waitForConnect()
-                    // didn't already handle them
-                    if (!hasPromiseReject) {
-                        throw error;
-                    }
-                }
-            });
-
-            this._registeredUsbListeners = true;
+            // navigator.usb.addEventListener("disconnect", (event) => {
+            //     if (event.device === this.device) {
+            //         common.logDebug("USB device disconnected");
+            //         if (this._disconnectResolve !== null) {
+            //             this._disconnectResolve(undefined);
+            //             this._disconnectResolve = null;
+            //         }
+            //     }
+            // });
+            //
+            // navigator.usb.addEventListener("connect", async (event) => {
+            //     common.logDebug("USB device connected");
+            //     this.device = event.device;
+            //
+            //     // Check whether waitForConnect() is pending and save it for later
+            //     let hasPromiseReject = this._connectReject !== null;
+            //     try {
+            //         await this._validateAndConnectDevice();
+            //     } catch (error) {
+            //         // Only rethrow errors from the event handler if waitForConnect()
+            //         // didn't already handle them
+            //         if (!hasPromiseReject) {
+            //             throw error;
+            //         }
+            //     }
+            // });
+            //
+            // this._registeredUsbListeners = true;
         }
 
         await this._validateAndConnectDevice();
