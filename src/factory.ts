@@ -569,7 +569,7 @@ export async function flashArkZip(
             },
             `boot${activeSlotSuffix}`
         )
-        //
+        
         console.log(`flashing dtbo${activeSlotSuffix}`);
         await flashEntryBlob(
             device,
