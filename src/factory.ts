@@ -349,6 +349,7 @@ export async function flashZip(
 export async function flashArkZip(
     device: FastbootDevice,
     blob: Blob,
+    flashBothSlots?: boolean
 ) {
 
     const reader = new ZipReader(new BlobReader(blob));
@@ -361,6 +362,8 @@ export async function flashArkZip(
 
     // figure out the active partition
     const activeSlot = await device.getVariable("current-slot");
+    const activeSlotSuffix = activeSlot === "a" ? "_a" : "_b";
+
 
     if(activeSlot === null) {
         throw new Error("Unable to determine active slot");
@@ -370,6 +373,24 @@ export async function flashArkZip(
     const inactiveSlotSuffix = activeSlot === "a" ? "_b" : "_a";
 
     console.log(`active slot: ${activeSlot}`);
+
+    console.log("Flashing inactive partition ", inactiveSlot);
+
+    // xbl.elf
+    const xblEntry = entries.find((e) => e.filename.includes("xbl.elf"));
+    console.log(`bootEntry: ${xblEntry?.filename}`);
+
+    if (xblEntry == undefined) {
+        throw new Error("xbl.elf not found in zip");
+    }
+
+    // xbl_config.elf
+    const xblConfigEntry = entries.find((e) => e.filename.includes("xbl_config.elf"));
+    console.log(`bootEntry: ${xblConfigEntry?.filename}`);
+
+    if (xblConfigEntry == undefined) {
+        throw new Error("xbl_config.elf not found in zip");
+    }
 
     // boot.img
     const bootEntry = entries.find((e) => e.filename.includes("boot.img"));
@@ -426,6 +447,26 @@ export async function flashArkZip(
     if (userdataEntry == undefined) {
         throw new Error("userdata.img not found in zip");
     }
+
+    console.log(`flashing xbl${inactiveSlotSuffix}`);
+    await flashEntryBlob(
+        device,
+        xblEntry,
+        (action, partition, progress) => {
+            // console.log(`${action} ${partition} ${progress}`);
+        },
+        `xbl${inactiveSlotSuffix}`
+    )
+
+    console.log(`flashing xbl_config${inactiveSlotSuffix}`);
+    await flashEntryBlob(
+        device,
+        xblConfigEntry,
+        (action, partition, progress) => {
+            // console.log(`${action} ${partition} ${progress}`);
+        },
+        `xbl_config${inactiveSlotSuffix}`
+    )
 
     console.log(`flashing boot${inactiveSlotSuffix}`);
     await flashEntryBlob(
@@ -497,7 +538,84 @@ export async function flashArkZip(
         `userdata`
     )
 
-    await device.runCommand("set_active:" + inactiveSlot);
+    if (flashBothSlots) {
+        console.log("Flashing active partition ", activeSlot);
+        console.log(`flashing xbl${activeSlotSuffix}`);
+        await flashEntryBlob(
+            device,
+            xblEntry,
+            (action, partition, progress) => {
+                // console.log(`${action} ${partition} ${progress}`);
+            },
+            `xbl${activeSlotSuffix}`
+        )
+
+        console.log(`flashing xbl_config${activeSlotSuffix}`);
+        await flashEntryBlob(
+            device,
+            xblConfigEntry,
+            (action, partition, progress) => {
+                // console.log(`${action} ${partition} ${progress}`);
+            },
+            `xbl_config${activeSlotSuffix}`
+        )
+
+        console.log(`flashing boot${activeSlotSuffix}`);
+        await flashEntryBlob(
+            device,
+            bootEntry,
+            (action, partition, progress) => {
+                // console.log(`${action} ${partition} ${progress}`);
+            },
+            `boot${activeSlotSuffix}`
+        )
+        //
+        console.log(`flashing dtbo${activeSlotSuffix}`);
+        await flashEntryBlob(
+            device,
+            dtboEntry,
+            (action, partition, progress) => {
+                // console.log(`${action} ${partition} ${progress}`);
+            },
+            `dtbo${activeSlotSuffix}`
+        )
+
+        console.log(`flashing system${activeSlotSuffix}`);
+        await flashEntryBlob(
+            device,
+            systemEntry,
+            (action, partition, progress) => {
+                // console.log(`${action} ${partition} ${progress}`);
+            },
+            `system${activeSlotSuffix}`
+        )
+
+        console.log(`flashing vendor${activeSlotSuffix}`);
+        await flashEntryBlob(
+            device,
+            vendorEntry,
+            (action, partition, progress) => {
+                // console.log(`${action} ${partition} ${progress}`);
+            },
+            `vendor${activeSlotSuffix}`
+        )
+
+        console.log(`flashing vbmeta${activeSlotSuffix}`);
+        await flashEntryBlob(
+            device,
+            vbmetaEntry,
+            (action, partition, progress) => {
+                // console.log(`${action} ${partition} ${progress}`);
+            },
+            `vbmeta${activeSlotSuffix}`
+        )
+    }
+
+    // if only one slot is flashed(inactive), then that one becomes active
+    // if we flash both slots, both have the new os, changing slot is unnecessary
+    if (!flashBothSlots) {
+        await device.runCommand("set_active:" + inactiveSlot);
+    }
 
     await device.reboot()
 
