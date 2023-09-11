@@ -378,7 +378,7 @@ export async function flashArkZip(
 
     // xbl.elf
     const xblEntry = entries.find((e) => e.filename.includes("xbl.elf"));
-    console.log(`bootEntry: ${xblEntry?.filename}`);
+    console.log(`xblEntry: ${xblEntry?.filename}`);
 
     if (xblEntry == undefined) {
         throw new Error("xbl.elf not found in zip");
@@ -386,7 +386,7 @@ export async function flashArkZip(
 
     // xbl_config.elf
     const xblConfigEntry = entries.find((e) => e.filename.includes("xbl_config.elf"));
-    console.log(`bootEntry: ${xblConfigEntry?.filename}`);
+    console.log(`xblConfigEntry: ${xblConfigEntry?.filename}`);
 
     if (xblConfigEntry == undefined) {
         throw new Error("xbl_config.elf not found in zip");
