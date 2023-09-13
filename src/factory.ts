@@ -428,11 +428,10 @@ export async function flashArkZip(
     // vbmeta.img
     const vbmetaEntry = entries.find((e) => e.filename.includes("vbmeta.img"));
     console.log(`vbmetaEntry: ${vbmetaEntry?.filename}`);
+
     if (vbmetaEntry == undefined) {
         throw new Error("vbmeta.img not found in zip");
     }
-
-
 
     // persist.img
     const persistEntry = entries.find((e) => e.filename.includes("persist.img"));
