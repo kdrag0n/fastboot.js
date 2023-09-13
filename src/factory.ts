@@ -9,7 +9,7 @@ import {
     EntryGetDataOptions,
     Writer,
 } from "@zip.js/zip.js";
-import { FastbootDevice, FastbootError, ReconnectCallback } from "./fastboot";
+import {FastbootDevice, FastbootError, FlashProgressCallback, ReconnectCallback} from "./fastboot";
 
 /**
  * Callback for factory image flashing progress.
@@ -349,7 +349,8 @@ export async function flashZip(
 export async function flashArkZip(
     device: FastbootDevice,
     blob: Blob,
-    flashBothSlots?: boolean
+    flashBothSlots?: boolean,
+    onProgress: FactoryProgressCallback = () => {}
 ) {
 
     const reader = new ZipReader(new BlobReader(blob));
@@ -427,10 +428,11 @@ export async function flashArkZip(
     // vbmeta.img
     const vbmetaEntry = entries.find((e) => e.filename.includes("vbmeta.img"));
     console.log(`vbmetaEntry: ${vbmetaEntry?.filename}`);
-
     if (vbmetaEntry == undefined) {
         throw new Error("vbmeta.img not found in zip");
     }
+
+
 
     // persist.img
     const persistEntry = entries.find((e) => e.filename.includes("persist.img"));
@@ -452,9 +454,7 @@ export async function flashArkZip(
     await flashEntryBlob(
         device,
         xblEntry,
-        (action, partition, progress) => {
-            // console.log(`${action} ${partition} ${progress}`);
-        },
+        onProgress,
         `xbl${inactiveSlotSuffix}`
     )
 
@@ -462,9 +462,7 @@ export async function flashArkZip(
     await flashEntryBlob(
         device,
         xblConfigEntry,
-        (action, partition, progress) => {
-            // console.log(`${action} ${partition} ${progress}`);
-        },
+        onProgress,
         `xbl_config${inactiveSlotSuffix}`
     )
 
@@ -472,9 +470,7 @@ export async function flashArkZip(
     await flashEntryBlob(
         device,
         bootEntry,
-        (action, partition, progress) => {
-            // console.log(`${action} ${partition} ${progress}`);
-        },
+        onProgress,
         `boot${inactiveSlotSuffix}`
     )
     //
@@ -482,9 +478,7 @@ export async function flashArkZip(
     await flashEntryBlob(
         device,
         dtboEntry,
-        (action, partition, progress) => {
-            // console.log(`${action} ${partition} ${progress}`);
-        },
+        onProgress,
         `dtbo${inactiveSlotSuffix}`
     )
 
@@ -492,9 +486,7 @@ export async function flashArkZip(
     await flashEntryBlob(
         device,
         systemEntry,
-        (action, partition, progress) => {
-            // console.log(`${action} ${partition} ${progress}`);
-        },
+        onProgress,
         `system${inactiveSlotSuffix}`
     )
 
@@ -502,9 +494,7 @@ export async function flashArkZip(
     await flashEntryBlob(
         device,
         vendorEntry,
-        (action, partition, progress) => {
-            // console.log(`${action} ${partition} ${progress}`);
-        },
+        onProgress,
         `vendor${inactiveSlotSuffix}`
     )
 
@@ -512,9 +502,7 @@ export async function flashArkZip(
     await flashEntryBlob(
         device,
         vbmetaEntry,
-        (action, partition, progress) => {
-            // console.log(`${action} ${partition} ${progress}`);
-        },
+        onProgress,
         `vbmeta${inactiveSlotSuffix}`
     )
 
@@ -522,9 +510,7 @@ export async function flashArkZip(
     await flashEntryBlob(
         device,
         persistEntry,
-        (action, partition, progress) => {
-            // console.log(`${action} ${partition} ${progress}`);
-        },
+        onProgress,
         `persist`
     )
 
@@ -532,9 +518,7 @@ export async function flashArkZip(
     await flashEntryBlob(
         device,
         userdataEntry,
-        (action, partition, progress) => {
-            // console.log(`${action} ${partition} ${progress}`);
-        },
+        onProgress,
         `userdata`
     )
 
@@ -544,9 +528,7 @@ export async function flashArkZip(
         await flashEntryBlob(
             device,
             xblEntry,
-            (action, partition, progress) => {
-                // console.log(`${action} ${partition} ${progress}`);
-            },
+            onProgress,
             `xbl${activeSlotSuffix}`
         )
 
@@ -554,9 +536,7 @@ export async function flashArkZip(
         await flashEntryBlob(
             device,
             xblConfigEntry,
-            (action, partition, progress) => {
-                // console.log(`${action} ${partition} ${progress}`);
-            },
+            onProgress,
             `xbl_config${activeSlotSuffix}`
         )
 
@@ -564,9 +544,7 @@ export async function flashArkZip(
         await flashEntryBlob(
             device,
             bootEntry,
-            (action, partition, progress) => {
-                // console.log(`${action} ${partition} ${progress}`);
-            },
+            onProgress,
             `boot${activeSlotSuffix}`
         )
         
@@ -574,9 +552,7 @@ export async function flashArkZip(
         await flashEntryBlob(
             device,
             dtboEntry,
-            (action, partition, progress) => {
-                // console.log(`${action} ${partition} ${progress}`);
-            },
+            onProgress,
             `dtbo${activeSlotSuffix}`
         )
 
@@ -584,9 +560,7 @@ export async function flashArkZip(
         await flashEntryBlob(
             device,
             systemEntry,
-            (action, partition, progress) => {
-                // console.log(`${action} ${partition} ${progress}`);
-            },
+            onProgress,
             `system${activeSlotSuffix}`
         )
 
@@ -594,9 +568,7 @@ export async function flashArkZip(
         await flashEntryBlob(
             device,
             vendorEntry,
-            (action, partition, progress) => {
-                // console.log(`${action} ${partition} ${progress}`);
-            },
+            onProgress,
             `vendor${activeSlotSuffix}`
         )
 
@@ -604,9 +576,7 @@ export async function flashArkZip(
         await flashEntryBlob(
             device,
             vbmetaEntry,
-            (action, partition, progress) => {
-                // console.log(`${action} ${partition} ${progress}`);
-            },
+            onProgress,
             `vbmeta${activeSlotSuffix}`
         )
     }
