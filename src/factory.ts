@@ -449,6 +449,14 @@ export async function flashArkZip(
         throw new Error("userdata.img not found in zip");
     }
 
+    // modem.img
+    const modemEntry = entries.find((e) => e.filename.includes("modem.img"));
+    console.log(`modemEntry: ${modemEntry?.filename}`);
+
+    if (modemEntry == undefined) {
+        throw new Error("modem.img not found in zip");
+    }
+
     console.log(`flashing xbl${inactiveSlotSuffix}`);
     await flashEntryBlob(
         device,
@@ -521,6 +529,14 @@ export async function flashArkZip(
         `userdata`
     )
 
+    console.log(`flashing modem${inactiveSlotSuffix}`);
+    await flashEntryBlob(
+        device,
+        modemEntry,
+        onProgress,
+        `modem${inactiveSlotSuffix}`
+    )
+
     if (flashBothSlots) {
         console.log("Flashing active partition ", activeSlot);
         console.log(`flashing xbl${activeSlotSuffix}`);
@@ -577,6 +593,14 @@ export async function flashArkZip(
             vbmetaEntry,
             onProgress,
             `vbmeta${activeSlotSuffix}`
+        )
+
+        console.log(`flashing modem${activeSlotSuffix}`);
+        await flashEntryBlob(
+            device,
+            modemEntry,
+            onProgress,
+            `modem${activeSlotSuffix}`
         )
     }
 
