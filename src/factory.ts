@@ -5,6 +5,7 @@ import {
     BlobWriter,
     TextWriter,
     Entry,
+    // @ts-ignore
     EntryGetDataOptions,
     Writer,
 } from "@zip.js/zip.js";
