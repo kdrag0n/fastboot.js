@@ -73,6 +73,7 @@ export type ReconnectCallback = () => void;
  * device connected over USB.
  */
 export class FastbootDevice {
+    usb: USB;
     device: USBDevice | null;
     epIn: number | null;
     epOut: number | null;
@@ -85,8 +86,10 @@ export class FastbootDevice {
     /**
      * Create a new fastboot device instance. This doesn't actually connect to
      * any USB devices; call {@link connect} to do so.
+     * @param {USB} [usb=navigator.usb] optionally specify a different WebUSB instance
      */
-    constructor() {
+    constructor(usb: USB = navigator.usb) {
+        this.usb = usb
         this.device = null;
         this.epIn = null;
         this.epOut = null;
@@ -201,7 +204,7 @@ export class FastbootDevice {
     async waitForConnect(onReconnect: ReconnectCallback = () => {}) {
         // On Android, we need to request the user to reconnect the device manually
         // because there is no support for automatic reconnection.
-        if (navigator.userAgent.includes("Android")) {
+        if (typeof navigator !== 'undefined' && navigator.userAgent?.includes("Android")) {
             await this.waitForDisconnect();
             onReconnect();
         }
@@ -219,7 +222,7 @@ export class FastbootDevice {
      * @throws {UsbError}
      */
     async connect() {
-        let devices = await navigator.usb.getDevices();
+        let devices = await this.usb.getDevices();
         common.logDebug("Found paired USB devices:", devices);
         if (devices.length === 1) {
             this.device = devices[0];
@@ -230,7 +233,7 @@ export class FastbootDevice {
             common.logDebug(
                 "No or multiple paired devices are connected, requesting one"
             );
-            this.device = await navigator.usb.requestDevice({
+            this.device = await this.usb.requestDevice({
                 filters: [
                     {
                         classCode: FASTBOOT_USB_CLASS,
@@ -243,7 +246,7 @@ export class FastbootDevice {
         common.logDebug("Using USB device:", this.device);
 
         if (!this._registeredUsbListeners) {
-            navigator.usb.addEventListener("disconnect", (event) => {
+            this.usb.addEventListener("disconnect", (event) => {
                 if (event.device === this.device) {
                     common.logDebug("USB device disconnected");
                     if (this._disconnectResolve !== null) {
@@ -253,7 +256,7 @@ export class FastbootDevice {
                 }
             });
 
-            navigator.usb.addEventListener("connect", async (event) => {
+            this.usb.addEventListener("connect", async (event) => {
                 common.logDebug("USB device connected");
                 this.device = event.device;
 
