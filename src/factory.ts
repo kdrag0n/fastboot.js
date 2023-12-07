@@ -457,6 +457,14 @@ export async function flashArkZip(
         throw new Error("modem.img not found in zip");
     }
 
+    // oem.img
+    const oemSerialEntry = entries.find((e) => e.filename.includes("oem.img"));
+    console.log(`oemSerialEntry: ${oemSerialEntry?.filename}`);
+
+    if (oemSerialEntry == undefined) {
+        throw new Error("oem.img not found in zip");
+    }
+
     console.log(`flashing xbl${inactiveSlotSuffix}`);
     await flashEntryBlob(
         device,
@@ -537,6 +545,14 @@ export async function flashArkZip(
         `modem${inactiveSlotSuffix}`
     )
 
+    console.log(`flashing oem_serial`);
+    await flashEntryBlob(
+        device,
+        oemSerialEntry,
+        onProgress,
+        `oem`
+    )
+
     if (flashBothSlots) {
         console.log("Flashing active partition ", activeSlot);
         console.log(`flashing xbl${activeSlotSuffix}`);
@@ -602,6 +618,7 @@ export async function flashArkZip(
             onProgress,
             `modem${activeSlotSuffix}`
         )
+
     }
 
     // if only one slot is flashed(inactive), then that one becomes active
