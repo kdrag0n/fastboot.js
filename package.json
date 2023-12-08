@@ -1,6 +1,6 @@
 {
     "name": "@almer-technologies/android-fastboot",
-    "version": "6969.0.0",
+    "version": "0.0.6969",
     "description": "JavaScript implementation of fastboot, using WebUSB",
     "main": "dist/fastboot.cjs",
     "module": "dist/fastboot.mjs",
