@@ -208,7 +208,7 @@ export async function flashZip(
         _action: string,
         _item: string,
         _progress: number
-    ) => {}
+    )=> {}
 ) {
     onProgress("load", "package", 0.0);
     let reader = new ZipReader(new BlobReader(blob));
@@ -344,13 +344,26 @@ export async function flashZip(
             device.runCommand("erase:userdata")
         );
     }
+
+
 }
 
+
+/**
+ * Flash a zip file containing a given operating system
+ * @param device fastboot device
+ * @param blob zip file containing the operating system to flash (os.zip)
+ * @param flashBothSlots if true, both slots will be flashed with the new os (only use when flashing over the factory image)
+ * @param additionalImages zip file containing additional images to flash (e.g. oem.img)
+ * @param onProgress callback for progress updates
+ */
 export async function flashArkZip(
     device: FastbootDevice,
     blob: Blob,
     flashBothSlots?: boolean,
+    additionalImages?: Blob,
     onProgress: FactoryProgressCallback = () => {}
+
 ) {
 
     const reader = new ZipReader(new BlobReader(blob));
@@ -602,7 +615,39 @@ export async function flashArkZip(
             onProgress,
             `modem${activeSlotSuffix}`
         )
+
     }
+
+    /**
+     * An additional zip can be passed to the function for cases like this - flashing the oem.img
+     * Because the first idea was to combine the oem image with the downloaded os.zip file and combine that on runtime
+     * This then took way too long, we're talking about 5min+ for a 1.1GB zip file
+     * So the idea was to flash the oem.img separately
+     */
+    if (additionalImages) {
+        const additionalReader = new ZipReader(new BlobReader(additionalImages));
+        const additionalEntries = await additionalReader.getEntries();
+
+        // oem.img
+        const oemImage = additionalEntries.find((e) => e.filename.includes("oem.img"));
+        console.log(`oem: ${oemImage?.filename}`);
+
+        if(oemImage) {
+            console.log(`flashing oem`);
+            try{
+                await flashEntryBlob(
+                    device,
+                    oemImage,
+                    onProgress,
+                    "oem"
+                )
+            } catch {
+                // The error is ignored because when it fails it means there is no oem partition
+            }
+
+        }
+    }
+
 
     // if only one slot is flashed(inactive), then that one becomes active
     // if we flash both slots, both have the new os, changing slot is unnecessary
