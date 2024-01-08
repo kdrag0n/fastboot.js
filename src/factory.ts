@@ -9,7 +9,8 @@ import {
     EntryGetDataOptions,
     Writer,
 } from "@zip.js/zip.js";
-import {FastbootDevice, FastbootError, FlashProgressCallback, ReconnectCallback} from "./fastboot";
+import {FastbootDevice, FastbootError, ReconnectCallback} from "./fastboot";
+import {createImageFile} from "./serial_number";
 
 /**
  * Callback for factory image flashing progress.
@@ -344,53 +345,30 @@ export async function flashZip(
             device.runCommand("erase:userdata")
         );
     }
-
-
 }
 
+/**
+ * Type representing the images that are currently being flashed on the Almer Arc.
+ */
+type ArcFlashImages = {
+    xblEntry: Entry,
+    xblConfigEntry: Entry,
+    bootEntry: Entry,
+    dtboEntry: Entry,
+    systemEntry: Entry,
+    vendorEntry: Entry,
+    vbmetaEntry: Entry,
+    persistEntry: Entry,
+    userdataEntry: Entry,
+    modemEntry: Entry
+}
 
 /**
- * Flash a zip file containing a given operating system
- * @param device fastboot device
- * @param blob zip file containing the operating system to flash (os.zip)
- * @param flashBothSlots if true, both slots will be flashed with the new os (only use when flashing over the factory image)
- * @param additionalImages zip file containing additional images to flash (e.g. oem.img)
- * @param onProgress callback for progress updates
+ * Method that takes a list of entries - representing images to flash - and checks if all the required ones are present.
+ * Throws an error if any of them is missing, or returns a ArcFlashImages object if they're all present.
+ * @param entries
  */
-export async function flashArkZip(
-    device: FastbootDevice,
-    blob: Blob,
-    flashBothSlots?: boolean,
-    additionalImages?: Blob,
-    onProgress: FactoryProgressCallback = () => {}
-
-) {
-
-    const reader = new ZipReader(new BlobReader(blob));
-    const entries = await reader.getEntries();
-
-    for (let entry of entries) {
-        console.log(entry.filename);
-        console.log(entry);
-    }
-
-    // figure out the active partition
-    const activeSlot = await device.getVariable("current-slot");
-    const activeSlotSuffix = activeSlot === "a" ? "_a" : "_b";
-
-
-    if(activeSlot === null) {
-        throw new Error("Unable to determine active slot");
-    }
-
-    const inactiveSlot = activeSlot === "a" ? "b" : "a";
-    const inactiveSlotSuffix = activeSlot === "a" ? "_b" : "_a";
-
-    console.log(`active slot: ${activeSlot}`);
-
-    console.log("Flashing inactive partition ", inactiveSlot);
-
-    // xbl.elf
+function checkExistingEntries(entries: Entry[]): ArcFlashImages {
     const xblEntry = entries.find((e) => e.filename.includes("xbl.elf"));
     console.log(`xblEntry: ${xblEntry?.filename}`);
 
@@ -470,184 +448,174 @@ export async function flashArkZip(
         throw new Error("modem.img not found in zip");
     }
 
-    console.log(`flashing xbl${inactiveSlotSuffix}`);
+    return {
+        xblEntry, xblConfigEntry, bootEntry, dtboEntry, systemEntry, vendorEntry, vbmetaEntry, persistEntry, userdataEntry, modemEntry
+    }
+}
+
+/**
+ * Method that takes the list of images, and flashes them to the target slot on the device.
+ * @param device
+ * @param targetSlot
+ * @param arcFlashImages
+ * @param onProgress
+ * @param initialFlash - if you are flashing both slots, the first flash is the initial one; this ensures that userdata and persist are not flashed twice, since there is only one of each for both slots.
+ */
+async function flashArcSlot(
+    device: FastbootDevice,
+    targetSlot: '_a' | '_b',
+    arcFlashImages: ArcFlashImages,
+    onProgress: FactoryProgressCallback = () => {},
+    initialFlash: boolean
+) {
+    const {
+        xblEntry, xblConfigEntry, bootEntry, dtboEntry, systemEntry, vendorEntry, vbmetaEntry, persistEntry, userdataEntry, modemEntry
+    } = arcFlashImages;
+
+    console.log(`flashing xbl${targetSlot}`);
     await flashEntryBlob(
         device,
         xblEntry,
         onProgress,
-        `xbl${inactiveSlotSuffix}`
+        `xbl${targetSlot}`
     )
 
-    console.log(`flashing xbl_config${inactiveSlotSuffix}`);
+    console.log(`flashing xbl_config${targetSlot}`);
     await flashEntryBlob(
         device,
         xblConfigEntry,
         onProgress,
-        `xbl_config${inactiveSlotSuffix}`
+        `xbl_config${targetSlot}`
     )
 
-    console.log(`flashing boot${inactiveSlotSuffix}`);
+    console.log(`flashing boot${targetSlot}`);
     await flashEntryBlob(
         device,
         bootEntry,
         onProgress,
-        `boot${inactiveSlotSuffix}`
+        `boot${targetSlot}`
     )
     //
-    console.log(`flashing dtbo${inactiveSlotSuffix}`);
+    console.log(`flashing dtbo${targetSlot}`);
     await flashEntryBlob(
         device,
         dtboEntry,
         onProgress,
-        `dtbo${inactiveSlotSuffix}`
+        `dtbo${targetSlot}`
     )
 
-    console.log(`flashing system${inactiveSlotSuffix}`);
+    console.log(`flashing system${targetSlot}`);
     await flashEntryBlob(
         device,
         systemEntry,
         onProgress,
-        `system${inactiveSlotSuffix}`
+        `system${targetSlot}`
     )
 
-    console.log(`flashing vendor${inactiveSlotSuffix}`);
+    console.log(`flashing vendor${targetSlot}`);
     await flashEntryBlob(
         device,
         vendorEntry,
         onProgress,
-        `vendor${inactiveSlotSuffix}`
+        `vendor${targetSlot}`
     )
 
-    console.log(`flashing vbmeta${inactiveSlotSuffix}`);
+    console.log(`flashing vbmeta${targetSlot}`);
     await flashEntryBlob(
         device,
         vbmetaEntry,
         onProgress,
-        `vbmeta${inactiveSlotSuffix}`
+        `vbmeta${targetSlot}`
     )
 
-    console.log(`flashing persist`);
-    await flashEntryBlob(
-        device,
-        persistEntry,
-        onProgress,
-        `persist`
-    )
-
-    console.log(`flashing userdata`);
-    await flashEntryBlob(
-        device,
-        userdataEntry,
-        onProgress,
-        `userdata`
-    )
-
-    console.log(`flashing modem${inactiveSlotSuffix}`);
+    console.log(`flashing modem${targetSlot}`);
     await flashEntryBlob(
         device,
         modemEntry,
         onProgress,
-        `modem${inactiveSlotSuffix}`
+        `modem${targetSlot}`
     )
+
+    if (initialFlash) {
+        console.log(`flashing persist`);
+        await flashEntryBlob(
+            device,
+            persistEntry,
+            onProgress,
+            `persist`
+        )
+
+        console.log(`flashing userdata`);
+        await flashEntryBlob(
+            device,
+            userdataEntry,
+            onProgress,
+            `userdata`
+        )
+    }
+}
+
+
+/**
+ * Flash a zip file containing a given operating system
+ * @param device fastboot device
+ * @param blob zip file containing the operating system to flash (os.zip)
+ * @param flashBothSlots if true, both slots will be flashed with the new os (only use when flashing over the factory image)
+ * @param additionalImages zip file containing additional images to flash (e.g. oem.img)
+ * @param onProgress callback for progress updates
+ */
+export async function flashArkZip(
+    device: FastbootDevice,
+    blob: Blob,
+    flashBothSlots?: boolean,
+    caseId?: string,
+    onProgress: FactoryProgressCallback = () => {}
+) {
+
+    const reader = new ZipReader(new BlobReader(blob));
+    const entries = await reader.getEntries();
+
+    // figure out the active partition
+    const activeSlot = await device.getVariable("current-slot");
+    const activeSlotSuffix = activeSlot === "a" ? "_a" : "_b";
+
+    if (activeSlot === null) {
+        throw new Error("Unable to determine active slot");
+    }
+
+    const inactiveSlot = activeSlot === "a" ? "b" : "a";
+    const inactiveSlotSuffix = activeSlot === "a" ? "_b" : "_a";
+
+    console.log(`Active slot: ${activeSlot}`, "Flashing inactive partition ", inactiveSlot);
+
+    const arcFlashImages  = checkExistingEntries(entries);
+
+    // this is the initial flash, which will override userdata and persist
+    await flashArcSlot(device, inactiveSlotSuffix, arcFlashImages, onProgress, true)
 
     if (flashBothSlots) {
         console.log("Flashing active partition ", activeSlot);
-        console.log(`flashing xbl${activeSlotSuffix}`);
-        await flashEntryBlob(
-            device,
-            xblEntry,
-            onProgress,
-            `xbl${activeSlotSuffix}`
-        )
-
-        console.log(`flashing xbl_config${activeSlotSuffix}`);
-        await flashEntryBlob(
-            device,
-            xblConfigEntry,
-            onProgress,
-            `xbl_config${activeSlotSuffix}`
-        )
-
-        console.log(`flashing boot${activeSlotSuffix}`);
-        await flashEntryBlob(
-            device,
-            bootEntry,
-            onProgress,
-            `boot${activeSlotSuffix}`
-        )
-        
-        console.log(`flashing dtbo${activeSlotSuffix}`);
-        await flashEntryBlob(
-            device,
-            dtboEntry,
-            onProgress,
-            `dtbo${activeSlotSuffix}`
-        )
-
-        console.log(`flashing system${activeSlotSuffix}`);
-        await flashEntryBlob(
-            device,
-            systemEntry,
-            onProgress,
-            `system${activeSlotSuffix}`
-        )
-
-        console.log(`flashing vendor${activeSlotSuffix}`);
-        await flashEntryBlob(
-            device,
-            vendorEntry,
-            onProgress,
-            `vendor${activeSlotSuffix}`
-        )
-
-        console.log(`flashing vbmeta${activeSlotSuffix}`);
-        await flashEntryBlob(
-            device,
-            vbmetaEntry,
-            onProgress,
-            `vbmeta${activeSlotSuffix}`
-        )
-
-        console.log(`flashing modem${activeSlotSuffix}`);
-        await flashEntryBlob(
-            device,
-            modemEntry,
-            onProgress,
-            `modem${activeSlotSuffix}`
-        )
-
+        await flashArcSlot(device, activeSlotSuffix, arcFlashImages, onProgress, false);
     }
 
     /**
-     * An additional zip can be passed to the function for cases like this - flashing the oem.img
-     * Because the first idea was to combine the oem image with the downloaded os.zip file and combine that on runtime
-     * This then took way too long, we're talking about 5min+ for a 1.1GB zip file
-     * So the idea was to flash the oem.img separately
-     */
-    if (additionalImages) {
-        const additionalReader = new ZipReader(new BlobReader(additionalImages));
-        const additionalEntries = await additionalReader.getEntries();
+    * This flag is used to signal to the frontend if the oem partition exists.
+    * We try flashing it, and if it errors, then it doesn't exist, and the flag is false, and we can warn the user.
+    */
+    let oemExists = true;
 
-        // oem.img
-        const oemImage = additionalEntries.find((e) => e.filename.includes("oem.img"));
-        console.log(`oem: ${oemImage?.filename}`);
+    if (caseId) {
+        const oemImage = await createImageFile(caseId);
 
-        if(oemImage) {
-            console.log(`flashing oem`);
-            try{
-                await flashEntryBlob(
-                    device,
-                    oemImage,
-                    onProgress,
-                    "oem"
-                )
-            } catch {
-                // The error is ignored because when it fails it means there is no oem partition
-            }
-
+        try {
+            await device.flashBlob('oem.img', blob, (progress) => {
+                onProgress("flash", 'oem.img', progress);
+            });
+        } catch {
+            oemExists = false;
+            console.log("oem partition does not exist on this device;");
         }
     }
-
 
     // if only one slot is flashed(inactive), then that one becomes active
     // if we flash both slots, both have the new os, changing slot is unnecessary
@@ -657,4 +625,5 @@ export async function flashArkZip(
 
     await device.reboot()
 
+    return oemExists;
 }
