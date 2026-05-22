@@ -186,7 +186,7 @@ function parseChunkHeader(buffer) {
         /* 2: reserved, 16 bits */
         blocks: view.getUint32(4, true),
         dataBytes: view.getUint32(8, true) - CHUNK_HEADER_SIZE,
-        data: null,
+        data: null, // to be populated by consumer
     };
 }
 function calcChunksBlockSize(chunks) {
@@ -274,6 +274,9 @@ async function fromRaw(blob) {
  */
 async function* splitBlob(blob, splitSize) {
     logDebug(`Splitting ${blob.size}-byte sparse image into ${splitSize}-byte chunks`);
+    // 7/8 is a safe value for the split size, to account for extra overhead
+    // AOSP source code does the same
+    const safeSendValue = Math.floor(splitSize * (7 / 8));
     // Short-circuit if splitting isn't required
     if (blob.size <= splitSize) {
         logDebug("Blob fits in 1 payload, not splitting");
@@ -295,49 +298,74 @@ async function* splitBlob(blob, splitSize) {
     let splitDataBytes = 0;
     for (let i = 0; i < header.chunks; i++) {
         let chunkHeaderData = await readBlobAsBuffer(blob.slice(0, CHUNK_HEADER_SIZE));
-        let chunk = parseChunkHeader(chunkHeaderData);
-        chunk.data = blob.slice(CHUNK_HEADER_SIZE, CHUNK_HEADER_SIZE + chunk.dataBytes);
-        blob = blob.slice(CHUNK_HEADER_SIZE + chunk.dataBytes);
-        let bytesRemaining = splitSize - calcChunksSize(splitChunks);
-        logVerbose(`  Chunk ${i}: type ${chunk.type}, ${chunk.dataBytes} bytes / ${chunk.blocks} blocks, ${bytesRemaining} bytes remaining`);
-        if (bytesRemaining >= chunk.dataBytes) {
-            // Read the chunk and add it
-            logVerbose("    Space is available, adding chunk");
-            splitChunks.push(chunk);
-            // Track amount of data written on the output device, in bytes
-            splitDataBytes += chunk.blocks * header.blockSize;
+        let originalChunk = parseChunkHeader(chunkHeaderData);
+        originalChunk.data = blob.slice(CHUNK_HEADER_SIZE, CHUNK_HEADER_SIZE + originalChunk.dataBytes);
+        blob = blob.slice(CHUNK_HEADER_SIZE + originalChunk.dataBytes);
+        let chunksToProcess = [];
+        // take into account cases where the chunk data is bigger than the maximum allowed download size
+        if (originalChunk.dataBytes > safeSendValue) {
+            logDebug(`Data of chunk ${i} is bigger than the maximum allowed download size: ${originalChunk.dataBytes} > ${safeSendValue}`);
+            // we should now split this chunk into multiple chunks that fit
+            let originalDataBytes = originalChunk.dataBytes;
+            let originalData = originalChunk.data;
+            while (originalDataBytes > 0) {
+                const toSend = Math.min(safeSendValue, originalDataBytes);
+                chunksToProcess.push({
+                    type: originalChunk.type,
+                    dataBytes: toSend,
+                    data: originalData.slice(0, toSend),
+                    blocks: toSend / header?.blockSize
+                });
+                originalData = originalData.slice(toSend);
+                originalDataBytes -= toSend;
+            }
+            logDebug("chunksToProcess", chunksToProcess);
         }
         else {
-            // Out of space, finish this split
-            // Blocks need to be calculated from chunk headers instead of going by size
-            // because FILL and SKIP chunks cover more blocks than the data they contain.
-            let splitBlocks = calcChunksBlockSize(splitChunks);
-            splitChunks.push({
-                type: ChunkType.Skip,
-                blocks: header.blocks - splitBlocks,
-                data: new Blob([]),
-                dataBytes: 0,
-            });
-            logVerbose(`Partition is ${header.blocks} blocks, used ${splitBlocks}, padded with ${header.blocks - splitBlocks}, finishing split with ${calcChunksBlockSize(splitChunks)} blocks`);
-            let splitImage = await createImage(header, splitChunks);
-            logDebug(`Finished ${splitImage.size}-byte split with ${splitChunks.length} chunks`);
-            yield {
-                data: await readBlobAsBuffer(splitImage),
-                bytes: splitDataBytes,
-            };
-            // Start a new split. Every split is considered a full image by the
-            // bootloader, so we need to skip the *total* written blocks.
-            logVerbose(`Starting new split: skipping first ${splitBlocks} blocks and adding chunk`);
-            splitChunks = [
-                {
+            chunksToProcess.push(originalChunk);
+        }
+        for (const chunk of chunksToProcess) {
+            let bytesRemaining = splitSize - calcChunksSize(splitChunks);
+            logVerbose(`  Chunk ${i}: type ${chunk.type}, ${chunk.dataBytes} bytes / ${chunk.blocks} blocks, ${bytesRemaining} bytes remaining`);
+            if (bytesRemaining >= chunk.dataBytes) {
+                // Read the chunk and add it
+                logVerbose("    Space is available, adding chunk");
+                splitChunks.push(chunk);
+                // Track amount of data written on the output device, in bytes
+                splitDataBytes += chunk.blocks * header.blockSize;
+            }
+            else {
+                // Out of space, finish this split
+                // Blocks need to be calculated from chunk headers instead of going by size
+                // because FILL and SKIP chunks cover more blocks than the data they contain.
+                let splitBlocks = calcChunksBlockSize(splitChunks);
+                splitChunks.push({
                     type: ChunkType.Skip,
-                    blocks: splitBlocks,
+                    blocks: header.blocks - splitBlocks,
                     data: new Blob([]),
                     dataBytes: 0,
-                },
-                chunk,
-            ];
-            splitDataBytes = 0;
+                });
+                logVerbose(`Partition is ${header.blocks} blocks, used ${splitBlocks}, padded with ${header.blocks - splitBlocks}, finishing split with ${calcChunksBlockSize(splitChunks)} blocks`);
+                let splitImage = await createImage(header, splitChunks);
+                logDebug(`Finished ${splitImage.size}-byte split with ${splitChunks.length} chunks`);
+                yield {
+                    data: await readBlobAsBuffer(splitImage),
+                    bytes: splitDataBytes,
+                };
+                // Start a new split. Every split is considered a full image by the
+                // bootloader, so we need to skip the *total* written blocks.
+                logVerbose(`Starting new split: skipping first ${splitBlocks} blocks and adding chunk`);
+                splitChunks = [
+                    {
+                        type: ChunkType.Skip,
+                        blocks: splitBlocks,
+                        data: new Blob([]),
+                        dataBytes: 0,
+                    },
+                    chunk,
+                ];
+                splitDataBytes = chunk.dataBytes;
+            }
         }
     }
     // Finish the final split if necessary
@@ -7238,7 +7266,7 @@ function createWorkerInterface(workerData, config) {
 function createWebWorkerInterface(workerData, config) {
 	let messageTask;
 	if (!workerData.interface) {
-		workerData.worker = new Worker(new URL(workerData.scripts[0], (typeof document === 'undefined' ? new (require('u' + 'rl').URL)('file:' + __filename).href : (document.currentScript && document.currentScript.src || new URL('fastboot.cjs', document.baseURI).href))));
+		workerData.worker = new Worker(new URL(workerData.scripts[0], (typeof document === 'undefined' ? new (require('u' + 'rl').URL)('file:' + __filename).href : (document.currentScript && document.currentScript.tagName.toUpperCase() === 'SCRIPT' && document.currentScript.src || new URL('fastboot.cjs', document.baseURI).href))));
 		workerData.worker.addEventListener(MESSAGE_EVENT_TYPE, onMessage, false);
 		workerData.interface = {
 			append(data) {
@@ -8466,8 +8494,9 @@ class FastbootDevice {
         try {
             let resp = (await this.getVariable("max-download-size")).toLowerCase();
             if (resp) {
-                // AOSP fastboot requires hex
-                return Math.min(parseInt(resp, 16), MAX_DOWNLOAD_SIZE);
+                // Auto-detect base like AOSP's ParseUint
+                const base = resp.startsWith("0x") ? 16 : resp.startsWith("0") ? 8 : 10;
+                return Math.min(parseInt(resp, base), MAX_DOWNLOAD_SIZE);
             }
         }
         catch (error) {
@@ -8521,7 +8550,7 @@ class FastbootDevice {
         }
         let downloadSize = parseInt(downloadResp.dataSize, 16);
         if (downloadSize !== buffer.byteLength) {
-            throw new FastbootError("FAIL", `Bootloader wants ${buffer.byteLength} bytes, requested to send ${buffer.byteLength} bytes`);
+            throw new FastbootError("FAIL", `Bootloader wants ${downloadSize} bytes, requested to send ${buffer.byteLength} bytes`);
         }
         logDebug(`Sending payload: ${buffer.byteLength} bytes`);
         await this._sendRawPayload(buffer, onProgress);

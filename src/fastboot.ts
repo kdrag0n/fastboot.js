@@ -384,8 +384,9 @@ export class FastbootDevice {
                 "max-download-size"
             ))!.toLowerCase();
             if (resp) {
-                // AOSP fastboot requires hex
-                return Math.min(parseInt(resp, 16), MAX_DOWNLOAD_SIZE);
+                // Auto-detect base like AOSP's ParseUint
+                const base = resp.startsWith("0x") ? 16 : resp.startsWith("0") ? 8 : 10;
+                return Math.min(parseInt(resp, base), MAX_DOWNLOAD_SIZE);
             }
         } catch (error) {
             /* Failed = no value, fallthrough */
